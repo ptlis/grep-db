@@ -70,8 +70,14 @@ final class ColumnMetadata
             [
                 'char',
                 'varchar',
+                'tinyblob',
                 'blob',
-                'text'
+                'mediumblob',
+                'longblob',
+                'tinytext',
+                'text',
+                'mediumtext',
+                'longtext'
             ]
         );
     }
