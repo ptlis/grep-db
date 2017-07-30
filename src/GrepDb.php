@@ -6,17 +6,19 @@ use Doctrine\DBAL\Connection;
 use Doctrine\DBAL\DriverManager;
 use ptlis\GrepDb\Metadata\DatabaseMetadata;
 use ptlis\GrepDb\Metadata\MetadataFactory;
+use ptlis\GrepDb\Search\Result\TableResultGateway;
+use ptlis\GrepDb\Search\Search;
 
 /**
  * Perform a search or a search & replace on the database.
  */
 final class GrepDb
 {
-    /** @var Connection */
-    private $connection;
-
     /** @var DatabaseMetadata */
     private $databaseMetadata;
+
+    /** @var Search */
+    private $search;
 
 
     /**
@@ -34,7 +36,7 @@ final class GrepDb
         $databaseName,
         $port = 3306
     ) {
-        $this->connection = DriverManager::getConnection([
+        $connection = DriverManager::getConnection([
             'dbname' => $databaseName,
             'user' => $username,
             'password' => $password,
@@ -43,23 +45,23 @@ final class GrepDb
             'driver' => 'pdo_mysql'
         ]);
 
+        $this->search = new Search($connection);
+
         $factory = new MetadataFactory();
 
-        $this->databaseMetadata = $factory->buildDatabaseMetadata($this->connection, $databaseName);
+        $this->databaseMetadata = $factory->buildDatabaseMetadata($connection, $databaseName);
+    }
 
-        foreach ($this->databaseMetadata->getAllTableMetadata() as $tableMetadata) {
-            if ($tableMetadata->hasStringTypeColumn()) {
-                echo $tableMetadata->getName() . ':' . PHP_EOL;
 
-                foreach ($tableMetadata->getAllColumnMetadata() as $columnMetadata) {
-                    if ($columnMetadata->isStringType()) {
-                        echo '  txt: ' . $columnMetadata->getName() . PHP_EOL;
-                    } else if ($columnMetadata->isPrimaryKey()) {
-                        echo '  pk:  ' . $columnMetadata->getName() . PHP_EOL;
-                    }
-                }
-            }
-        }
-
+    /**
+     * Returns a TableResultGateway through which results can be retrieved.
+     *
+     * @param string $table
+     * @param string $searchTerm
+     * @return TableResultGateway
+     */
+    public function searchTable($table, $searchTerm)
+    {
+        return $this->search->searchTable($this->databaseMetadata->getTableMetadata($table), $searchTerm);
     }
 }
