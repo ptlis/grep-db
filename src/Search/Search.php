@@ -5,7 +5,7 @@ namespace ptlis\GrepDb\Search;
 use Doctrine\DBAL\Connection;
 use ptlis\GrepDb\Metadata\DatabaseMetadata;
 use ptlis\GrepDb\Metadata\TableMetadata;
-use ptlis\GrepDb\Search\Result\DatabaseResultsGateway;
+use ptlis\GrepDb\Search\Result\DatabaseResultGateway;
 use ptlis\GrepDb\Search\Result\TableResultGateway;
 
 /**
@@ -31,13 +31,13 @@ final class Search
      *
      * @param DatabaseMetadata $databaseMetadata
      * @param string $searchTerm
-     * @return DatabaseResultsGateway
+     * @return DatabaseResultGateway
      */
     public function searchDatabase(
         DatabaseMetadata $databaseMetadata,
         $searchTerm
     ) {
-        return new DatabaseResultsGateway(
+        return new DatabaseResultGateway(
             $this->connection,
             $databaseMetadata,
             $searchTerm

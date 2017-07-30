@@ -8,7 +8,7 @@ use ptlis\GrepDb\Metadata\DatabaseMetadata;
 /**
  * Gateway used to retrieve search results for a database.
  */
-final class DatabaseResultsGateway
+final class DatabaseResultGateway
 {
     /** @var Connection */
     private $connection;

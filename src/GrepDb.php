@@ -6,7 +6,7 @@ use Doctrine\DBAL\Connection;
 use Doctrine\DBAL\DriverManager;
 use ptlis\GrepDb\Metadata\DatabaseMetadata;
 use ptlis\GrepDb\Metadata\MetadataFactory;
-use ptlis\GrepDb\Search\Result\DatabaseResultsGateway;
+use ptlis\GrepDb\Search\Result\DatabaseResultGateway;
 use ptlis\GrepDb\Search\Result\TableResultGateway;
 use ptlis\GrepDb\Search\Search;
 
@@ -70,7 +70,7 @@ final class GrepDb
      * Returns a DatabaseResultsGateway through which results can be retrieved.
      *
      * @param string $searchTerm
-     * @return DatabaseResultsGateway
+     * @return DatabaseResultGateway
      */
     public function serachDatabase($searchTerm)
     {
