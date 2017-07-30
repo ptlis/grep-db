@@ -13,6 +13,9 @@ final class ColumnMetadata
     /** @var string */
     private $type;
 
+    /** @var int */
+    private $maxLength;
+
     /** @var bool */
     private $primaryKey;
 
@@ -20,15 +23,18 @@ final class ColumnMetadata
     /**
      * @param string $name
      * @param string $type
+     * @param int $maxLength
      * @param bool $primaryKey
      */
     public function __construct(
         $name,
         $type,
+        $maxLength,
         $primaryKey
     ) {
         $this->name = $name;
         $this->type = $type;
+        $this->maxLength = $maxLength;
         $this->primaryKey = $primaryKey;
     }
 
@@ -46,6 +52,14 @@ final class ColumnMetadata
     public function getType()
     {
         return $this->type;
+    }
+
+    /**
+     * @return int
+     */
+    public function getMaxLength()
+    {
+        return $this->maxLength;
     }
 
     /**

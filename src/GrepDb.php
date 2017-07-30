@@ -6,6 +6,7 @@ use Doctrine\DBAL\Connection;
 use Doctrine\DBAL\DriverManager;
 use ptlis\GrepDb\Metadata\DatabaseMetadata;
 use ptlis\GrepDb\Metadata\MetadataFactory;
+use ptlis\GrepDb\Replace\Replace;
 use ptlis\GrepDb\Search\Result\DatabaseResultGateway;
 use ptlis\GrepDb\Search\Result\TableResultGateway;
 use ptlis\GrepDb\Search\Search;
@@ -20,6 +21,9 @@ final class GrepDb
 
     /** @var Search */
     private $search;
+
+    /** @var Replace */
+    private $replace;
 
 
     /**
@@ -47,6 +51,7 @@ final class GrepDb
         ]);
 
         $this->search = new Search($connection);
+        $this->replace = new Replace($connection);
 
         $factory = new MetadataFactory();
 
@@ -72,8 +77,33 @@ final class GrepDb
      * @param string $searchTerm
      * @return DatabaseResultGateway
      */
-    public function serachDatabase($searchTerm)
+    public function searchDatabase($searchTerm)
     {
         return $this->search->searchDatabase($this->databaseMetadata, $searchTerm);
+    }
+
+    /**
+     * Performs a search and replace on the specified table.
+     *
+     * @param string $table
+     * @param string $searchTerm
+     * @param string $replaceTerm
+     */
+    public function replaceTable($table, $searchTerm, $replaceTerm)
+    {
+        $tableResultGateway = $this->searchTable($table, $searchTerm);
+        $this->replace->replaceTable($tableResultGateway, $replaceTerm);
+    }
+
+    /**
+     * Performs a search and replace on all tables in the database.
+     *
+     * @param string $searchTerm
+     * @param string $replaceTerm
+     */
+    public function replaceDatabase($searchTerm, $replaceTerm)
+    {
+        $databaseResultGateway = $this->searchDatabase($searchTerm);
+        $this->replace->replaceDatabase($databaseResultGateway, $replaceTerm);
     }
 }

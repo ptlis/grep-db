@@ -39,7 +39,7 @@ final class RowResult
      *
      * @return ColumnResult[]
      */
-    public function getMatchingColumnList()
+    public function getMatchingColumns()
     {
         return $this->matchingColumnList;
     }

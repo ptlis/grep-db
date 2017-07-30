@@ -1,0 +1,158 @@
+<?php
+
+namespace ptlis\GrepDb\Replace;
+
+use Doctrine\DBAL\Connection;
+use ptlis\GrepDb\Replace\Strategy\ReplacementStrategy;
+use ptlis\GrepDb\Replace\Strategy\SerializedReplace;
+use ptlis\GrepDb\Replace\Strategy\StringReplace;
+use ptlis\GrepDb\Search\Result\DatabaseResultGateway;
+use ptlis\GrepDb\Search\Result\TableResultGateway;
+
+/**
+ * Class through which database replacements are executed.
+ */
+final class Replace
+{
+    /** @var Connection */
+    private $connection;
+
+    /** @var ReplacementStrategy[] */
+    private $replacementStrategyList;
+
+
+    /**
+     * @param Connection $connection
+     * @param ReplacementStrategy[] $replacementStrategyList
+     */
+    public function __construct(
+        Connection $connection,
+        array $replacementStrategyList = []
+    ) {
+        $this->connection = $connection;
+
+        if (count($replacementStrategyList)) {
+            $this->replacementStrategyList = $replacementStrategyList;
+        } else {
+            $this->replacementStrategyList = [
+                new SerializedReplace(),
+                new StringReplace()
+            ];
+        }
+    }
+
+    /**
+     * Perform replacements across the database.
+     *
+     * @param DatabaseResultGateway $databaseResultsGateway
+     * @param string $replaceTerm
+     */
+    public function replaceDatabase(
+        DatabaseResultGateway $databaseResultsGateway,
+        $replaceTerm
+    ) {
+        foreach ($databaseResultsGateway->getMatchingTables() as $tableResultGateway) {
+            $this->replaceTable($tableResultGateway, $replaceTerm);
+        }
+    }
+
+    /**
+     * Perform replacements on a single table.
+     *
+     * @param TableResultGateway $tableResultGateway
+     * @param string $replaceTerm
+     */
+    public function replaceTable(
+        TableResultGateway $tableResultGateway,
+        $replaceTerm
+    ) {
+        echo 'Table: ' . $tableResultGateway->getTableMetadata()->getName() . PHP_EOL;
+
+        $rowCount = 0;
+        foreach ($tableResultGateway->getMatchingRows() as $matchingRow) {
+            $rowCount++;
+            $replacementData = [];
+            foreach ($matchingRow->getMatchingColumns() as $matchingColumn) {
+                $afterReplace = $this->replace(
+                    $tableResultGateway->getSearchTerm(),
+                    $replaceTerm,
+                    $matchingColumn->getValue()
+                );
+
+                // After replacement the data is too long, we must truncate :(
+                if (strlen($afterReplace) > $matchingColumn->getColumnMetadata()->getMaxLength()) {
+                    $afterReplace = substr($afterReplace, 0, $matchingColumn->getColumnMetadata()->getMaxLength());
+                    // TODO: Properly track this!
+                    if ($matchingRow->hasPrimaryKey()) {
+                        echo 'Error: Truncating column named ' . $matchingColumn->getColumnMetadata()->getName() . ', value ' . $matchingRow->getPrimaryKeyValue() . ' in table ' . $tableResultGateway->getTableMetadata()->getName() . PHP_EOL;
+                    } else {
+                        echo 'Error: Truncating column with original value "' . $matchingColumn->getValue() . '"'.PHP_EOL;
+                    }
+                }
+
+                $replacementData[$matchingColumn->getColumnMetadata()->getName()] = $afterReplace;
+            }
+
+            $queryBuilder = $this->connection->createQueryBuilder();
+
+            // Update using primary key
+            if ($matchingRow->hasPrimaryKey()) {
+                $queryBuilder
+                    ->update(
+                        $tableResultGateway->getTableMetadata()->getName(), 'subject'
+                    )
+                    ->where('subject.' . $matchingRow->getPrimaryKeyColumn()->getName() . ' = :key')
+                    ->setParameters($replacementData)
+                    ->setParameter('key', $matchingRow->getPrimaryKeyValue());
+
+                foreach ($replacementData as $columnName => $columnValue) {
+                    $queryBuilder->set('subject.' . $columnName, ':' . $columnName);
+                }
+
+            // If there is no primary key then use the matched columns & values
+            } else {
+                var_dump('no pk');die();
+            }
+
+            $queryBuilder->execute();
+            if (0 === ($rowCount % 100)) {
+                echo 'Completed ' . $rowCount . ' rows' . PHP_EOL;
+            }
+        }
+
+        echo 'Completed ' . $rowCount . ' rows' . PHP_EOL;
+    }
+
+    /**
+     * Perform a search and replace on the subject.
+     *
+     * This is achieved by iterating through the replacement strategies and find one that can perform the replacement,
+     * and then using that replacement strategy.
+     *
+     * @param string $searchTerm
+     * @param string $replaceTerm
+     * @param string $subject
+     * @return string
+     */
+    private function replace(
+        $searchTerm,
+        $replaceTerm,
+        $subject
+    ) {
+        $hasReplaced = false;
+        $afterReplace = '';
+        foreach ($this->replacementStrategyList as $replacementStrategy) {
+            if ($replacementStrategy->canReplace($subject)) {
+                $hasReplaced = true;
+                $afterReplace = $replacementStrategy->replace($searchTerm, $replaceTerm, $subject);
+                break;
+            }
+        }
+
+        if (!$hasReplaced) {
+            throw new \RuntimeException('Error trying to replace "' . $searchTerm . '" with "' . $replaceTerm . '"');
+        }
+
+        return $afterReplace;
+    }
+}

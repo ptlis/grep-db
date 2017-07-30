@@ -41,9 +41,10 @@ final class MetadataFactory
             $columnsStatement = $connection
                 ->createQueryBuilder()
                 ->select([
-                    'columns.COLUMN_NAME as name',
-                    'columns.DATA_TYPE as type',
-                    'columns.COLUMN_KEY as column_key'
+                    'columns.COLUMN_NAME AS name',
+                    'columns.DATA_TYPE AS type',
+                    'columns.COLUMN_KEY AS column_key',
+                    'columns.CHARACTER_MAXIMUM_LENGTH AS max_length'
                 ])
                 ->from('information_schema.COLUMNS', 'columns')
                 ->where('TABLE_SCHEMA = :schema')
@@ -59,6 +60,7 @@ final class MetadataFactory
                 $columnList[] = new ColumnMetadata(
                     $columnsRow['name'],
                     $columnsRow['type'],
+                    $columnsRow['max_length'],
                     'PRI' === $columnsRow['column_key']
                 );
             }

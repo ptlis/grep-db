@@ -46,6 +46,24 @@ final class TableResultGateway
     }
 
     /**
+     * @return TableMetadata
+     */
+    public function getTableMetadata()
+    {
+        return $this->tableMetadata;
+    }
+
+    /**
+     * Returns the search term.
+     *
+     * @return string
+     */
+    public function getSearchTerm()
+    {
+        return $this->searchTerm;
+    }
+
+    /**
      * Get number of rows matching the search term.
      *
      * @return int
@@ -64,14 +82,6 @@ final class TableResultGateway
 
         $statement = $queryBuilder->execute();
         return $statement->fetchColumn(0);
-    }
-
-    /**
-     * @return TableMetadata
-     */
-    public function getTableMetadata()
-    {
-        return $this->tableMetadata;
     }
 
     /**

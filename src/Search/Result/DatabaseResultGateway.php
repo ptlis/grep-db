@@ -33,7 +33,7 @@ final class DatabaseResultGateway
         Connection $connection,
         DatabaseMetadata $databaseMetadata,
         $searchTerm,
-        $batchSize = 1000
+        $batchSize = 100
     ) {
         $this->connection = $connection;
         $this->databaseMetadata = $databaseMetadata;
@@ -47,6 +47,16 @@ final class DatabaseResultGateway
     public function getDatabaseMetadata()
     {
         return $this->databaseMetadata;
+    }
+
+    /**
+     * Returns the search term.
+     *
+     * @return string
+     */
+    public function getSearchTerm()
+    {
+        return $this->searchTerm;
     }
 
     /**
