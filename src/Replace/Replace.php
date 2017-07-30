@@ -7,6 +7,7 @@ use ptlis\GrepDb\Replace\Strategy\ReplacementStrategy;
 use ptlis\GrepDb\Replace\Strategy\SerializedReplace;
 use ptlis\GrepDb\Replace\Strategy\StringReplace;
 use ptlis\GrepDb\Search\Result\DatabaseResultGateway;
+use ptlis\GrepDb\Search\Result\RowResult;
 use ptlis\GrepDb\Search\Result\TableResultGateway;
 
 /**
@@ -17,19 +18,25 @@ final class Replace
     /** @var Connection */
     private $connection;
 
+    /** @var int */
+    private $batchSize;
+
     /** @var ReplacementStrategy[] */
     private $replacementStrategyList;
 
 
     /**
      * @param Connection $connection
+     * @param int $batchSize
      * @param ReplacementStrategy[] $replacementStrategyList
      */
     public function __construct(
         Connection $connection,
+        $batchSize = 100,
         array $replacementStrategyList = []
     ) {
         $this->connection = $connection;
+        $this->batchSize = $batchSize;
 
         if (count($replacementStrategyList)) {
             $this->replacementStrategyList = $replacementStrategyList;
@@ -66,61 +73,128 @@ final class Replace
         TableResultGateway $tableResultGateway,
         $replaceTerm
     ) {
-        echo 'Table: ' . $tableResultGateway->getTableMetadata()->getName() . PHP_EOL;
+        echo 'Table: ' . $tableResultGateway->getMetadata()->getName() . PHP_EOL;
 
         $rowCount = 0;
+        $rowBatch = [];
         foreach ($tableResultGateway->getMatchingRows() as $matchingRow) {
             $rowCount++;
-            $replacementData = [];
-            foreach ($matchingRow->getMatchingColumns() as $matchingColumn) {
-                $afterReplace = $this->replace(
-                    $tableResultGateway->getSearchTerm(),
-                    $replaceTerm,
-                    $matchingColumn->getValue()
-                );
+            $rowBatch[] = $matchingRow;
 
-                // After replacement the data is too long, we must truncate :(
-                if (strlen($afterReplace) > $matchingColumn->getColumnMetadata()->getMaxLength()) {
-                    $afterReplace = substr($afterReplace, 0, $matchingColumn->getColumnMetadata()->getMaxLength());
-                    // TODO: Properly track this!
-                    if ($matchingRow->hasPrimaryKey()) {
-                        echo 'Error: Truncating column named ' . $matchingColumn->getColumnMetadata()->getName() . ', value ' . $matchingRow->getPrimaryKeyValue() . ' in table ' . $tableResultGateway->getTableMetadata()->getName() . PHP_EOL;
-                    } else {
-                        echo 'Error: Truncating column with original value "' . $matchingColumn->getValue() . '"'.PHP_EOL;
-                    }
-                }
-
-                $replacementData[$matchingColumn->getColumnMetadata()->getName()] = $afterReplace;
+            if (0 === ($rowCount % $this->batchSize)) {
+                $this->batchUpdateRows($tableResultGateway, $rowBatch, $replaceTerm);
+                $rowBatch = [];
             }
 
-            $queryBuilder = $this->connection->createQueryBuilder();
-
-            // Update using primary key
-            if ($matchingRow->hasPrimaryKey()) {
-                $queryBuilder
-                    ->update(
-                        $tableResultGateway->getTableMetadata()->getName(), 'subject'
-                    )
-                    ->where('subject.' . $matchingRow->getPrimaryKeyColumn()->getName() . ' = :key')
-                    ->setParameters($replacementData)
-                    ->setParameter('key', $matchingRow->getPrimaryKeyValue());
-
-                foreach ($replacementData as $columnName => $columnValue) {
-                    $queryBuilder->set('subject.' . $columnName, ':' . $columnName);
-                }
-
-            // If there is no primary key then use the matched columns & values
-            } else {
-                var_dump('no pk');die();
-            }
-
-            $queryBuilder->execute();
-            if (0 === ($rowCount % 100)) {
+            if (0 === ($rowCount % $this->batchSize)) {
                 echo 'Completed ' . $rowCount . ' rows' . PHP_EOL;
             }
         }
 
+        if (0 !== ($rowCount % $this->batchSize)) {
+            $this->batchUpdateRows($tableResultGateway, $rowBatch, $replaceTerm);
+        }
+
         echo 'Completed ' . $rowCount . ' rows' . PHP_EOL;
+    }
+
+    /**
+     * Batch update records.
+     *
+     * This is just awful, but way more efficient than the alternative...
+     *
+     * @param TableResultGateway $tableResultGateway
+     * @param RowResult[] $rowResultList
+     * @param string $replaceTerm
+     */
+    private function batchUpdateRows(
+        TableResultGateway $tableResultGateway,
+        array $rowResultList,
+        $replaceTerm
+    ) {
+        $columnNameList = $this->findColumnsWithReplacements($rowResultList);
+
+        // Set correct charset & collation for this table
+        $charset = $tableResultGateway->getMetadata()->getCharset();
+        $collation = $tableResultGateway->getMetadata()->getCollation();
+        $this->connection
+            ->query('SET NAMES \'' . $charset . '\' COLLATE \'' . $collation . '\'')
+            ->execute();
+
+        // Replace with when of primary key
+        if ($tableResultGateway->getMetadata()->hasPrimaryKey()) {
+
+            $query = 'UPDATE  `' . $tableResultGateway->getMetadata()->getName() . '` SET' . PHP_EOL;
+
+            $rowIdList = [];
+
+            // Build case/when block for each column
+            $firstRun = true;
+            foreach ($columnNameList as $columnName) {
+                if ($firstRun) {
+                    $firstRun = false;
+                } else {
+                    $query .= ',' . PHP_EOL;
+                }
+                $query .= '  ' . $columnName . ' = (CASE' . PHP_EOL;
+
+                // Build 'when' statement for each row
+                foreach ($rowResultList as $rowResult) {
+                    $primaryKey = $rowResult->getPrimaryKeyValue();
+                    $rowIdList[$primaryKey] = true;
+
+                    // Replace string in column
+                    if ($rowResult->hasColumnResult($columnName)) {
+                        $columnValue = $rowResult->getColumnResult($columnName)->getValue();
+                        $replaced = $this->replace($tableResultGateway->getSearchTerm(), $replaceTerm, $columnValue);
+                        $query .= '    WHEN ' . $primaryKey . ' THEN ' . $this->connection->quote($replaced) . PHP_EOL;
+
+                    // Don't touch the column
+                    } else {
+                        $query .= '    WHEN ' . $primaryKey . ' THEN ' . $columnName . PHP_EOL;
+                    }
+                }
+
+                $query .= '    ELSE `' . $columnName . '`' . PHP_EOL;
+                $query .= '  END)';
+            }
+
+            $whereIn = array_map(
+                function ($id) {
+                    return $this->connection->query($id);
+                },
+                array_keys($rowIdList)
+            );
+
+            $primaryKeyName = $tableResultGateway->getMetadata()->getPrimaryKey()->getName();
+            $query .= PHP_EOL . 'WHERE `' . $primaryKeyName . '` in (' . $whereIn . ')';
+
+            // Run the update
+            $this->connection->query($query)->execute();
+
+        } else {
+            // TODO: Implement
+            throw new \RuntimeException('Cannot perform replacement without primary key');
+        }
+    }
+
+    /**
+     * Find all columns that are to be updated.
+     *
+     * @param RowResult[] $rowResultList
+     * @return string[] An array of column names to replace
+     */
+    private function findColumnsWithReplacements(
+        array $rowResultList
+    ) {
+        $columnNames = [];
+        foreach ($rowResultList as $rowResult) {
+            foreach ($rowResult->getMatchingColumns() as $matchingColumn) {
+                $columnNames[$matchingColumn->getColumnMetadata()->getName()] = 1;
+            }
+        }
+
+        return array_keys($columnNames);
     }
 
     /**

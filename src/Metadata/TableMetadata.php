@@ -145,4 +145,26 @@ final class TableMetadata
         }
         return $hasPrimaryKey;
     }
+
+    /**
+     * Returns the primary key column metadata.
+     *
+     * @return ColumnMetadata
+     * @throws \RuntimeException
+     */
+    public function getPrimaryKey()
+    {
+        if (!$this->hasPrimaryKey()) {
+            throw new \RuntimeException('No primary key exists on ' . $this->name);
+        }
+
+        $primaryKey = null;
+        foreach ($this->columnMetadataList as $columnMetadata) {
+            if ($columnMetadata->isPrimaryKey()) {
+                $primaryKey = $columnMetadata;
+                break;
+            }
+        }
+        return $primaryKey;
+    }
 }

@@ -44,7 +44,7 @@ final class DatabaseResultGateway
     /**
      * @return DatabaseMetadata
      */
-    public function getDatabaseMetadata()
+    public function getMetadata()
     {
         return $this->databaseMetadata;
     }

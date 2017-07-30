@@ -48,7 +48,7 @@ final class TableResultGateway
     /**
      * @return TableMetadata
      */
-    public function getTableMetadata()
+    public function getMetadata()
     {
         return $this->tableMetadata;
     }

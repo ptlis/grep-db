@@ -10,7 +10,7 @@ use ptlis\GrepDb\Metadata\ColumnMetadata;
 final class RowResult
 {
     /** @var array|ColumnResult[] */
-    private $matchingColumnList;
+    private $matchingColumnList = [];
 
     /** @var null|ColumnMetadata */
     private $primaryKeyColumn = null;
@@ -29,7 +29,9 @@ final class RowResult
         ColumnMetadata $primaryKeyColumn = null,
         $primaryKeyValue = null
     ) {
-        $this->matchingColumnList = $matchingColumnList;
+        foreach ($matchingColumnList as $matchingColumn) {
+            $this->matchingColumnList[$matchingColumn->getColumnMetadata()->getName()] = $matchingColumn;
+        }
         $this->primaryKeyColumn = $primaryKeyColumn;
         $this->primaryKeyValue = $primaryKeyValue;
     }
@@ -42,6 +44,32 @@ final class RowResult
     public function getMatchingColumns()
     {
         return $this->matchingColumnList;
+    }
+
+    /**
+     * Returns true if the column result exists.
+     *
+     * @param string $columnName
+     * @return bool
+     */
+    public function hasColumnResult($columnName)
+    {
+        return array_key_exists($columnName, $this->matchingColumnList);
+    }
+
+    /**
+     * Returns the column result matching the passed name.
+     *
+     * @param string $columnName
+     * @return ColumnResult
+     */
+    public function getColumnResult($columnName)
+    {
+        if (!$this->hasColumnResult($columnName)) {
+            throw new \RuntimeException('Could not find changed column named "' . $columnName . '"');
+        }
+
+        return $this->matchingColumnList[$columnName];
     }
 
     /**
