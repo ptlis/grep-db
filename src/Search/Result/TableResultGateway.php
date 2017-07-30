@@ -45,6 +45,11 @@ final class TableResultGateway
         $this->batchSize = $batchSize;
     }
 
+    /**
+     * Get number of rows matching the search term.
+     *
+     * @return int
+     */
     public function getMatchingCount()
     {
         // Build query except WHERE clause
@@ -59,6 +64,14 @@ final class TableResultGateway
 
         $statement = $queryBuilder->execute();
         return $statement->fetchColumn(0);
+    }
+
+    /**
+     * @return TableMetadata
+     */
+    public function getTableMetadata()
+    {
+        return $this->tableMetadata;
     }
 
     /**
