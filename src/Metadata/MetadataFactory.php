@@ -4,46 +4,55 @@
 namespace ptlis\GrepDb\Metadata;
 
 
+use Doctrine\DBAL\Connection;
+
 final class MetadataFactory
 {
     /**
-     * @param \PDO $connection
+     * @param Connection $connection
      * @param string $databaseName
      * @return DatabaseMetadata
      */
-    public function buildDatabaseMetadata(\PDO $connection, $databaseName)
+    public function buildDatabaseMetadata(Connection $connection, $databaseName)
     {
         // Get table information
-        $tablesQuery = '
-            SELECT  tables.TABLE_NAME as name,
-		            tables.ENGINE as engine,
-                    tables.TABLE_COLLATION as collation,
-                    tables.TABLE_ROWS as row_count,
-                    charset.CHARACTER_SET_NAME as charset
-            FROM information_schema.TABLES tables
-            LEFT JOIN information_schema.COLLATION_CHARACTER_SET_APPLICABILITY charset
-                ON tables.TABLE_COLLATION = charset.COLLATION_NAME
-		';
-
-        $tablesResult = $connection->query($tablesQuery);
+        $tableStatement = $connection
+            ->createQueryBuilder()
+            ->select([
+                'tables.TABLE_NAME AS name',
+                'tables.ENGINE AS engine',
+                'tables.TABLE_COLLATION AS collation',
+                'tables.TABLE_ROWS AS row_count',
+                'charset.CHARACTER_SET_NAME AS charset'
+            ])
+            ->from('information_schema.TABLES', 'tables')
+            ->leftJoin(
+                'tables',
+                'information_schema.COLLATION_CHARACTER_SET_APPLICABILITY',
+                'charset',
+                'tables.TABLE_COLLATION = charset.COLLATION_NAME'
+            )
+            ->execute();
 
         $tableList = [];
-        foreach ($tablesResult->fetchAll(\PDO::FETCH_ASSOC) as $row) {
+        foreach ($tableStatement->fetchAll(\PDO::FETCH_ASSOC) as $row) {
 
             // Get column information
-            $columnsQuery = '
-                SELECT  COLUMN_NAME as name,
-                        DATA_TYPE as type,
-                        COLUMN_KEY as column_key
-                FROM    information_schema.COLUMNS
-                WHERE   TABLE_SCHEMA = :schema
-                AND     TABLE_NAME = :table_name
-            ';
-
-            $columnsStatement = $connection->prepare($columnsQuery);
-            $columnsStatement->bindParam(':schema', $databaseName);
-            $columnsStatement->bindParam(':table_name', $row['name']);
-            $columnsStatement->execute();
+            $columnsStatement = $connection
+                ->createQueryBuilder()
+                ->select([
+                    'columns.COLUMN_NAME as name',
+                    'columns.DATA_TYPE as type',
+                    'columns.COLUMN_KEY as column_key'
+                ])
+                ->from('information_schema.COLUMNS', 'columns')
+                ->where('TABLE_SCHEMA = :schema')
+                ->andWhere('TABLE_NAME = :table_name')
+                ->setParameters([
+                    'schema' => $databaseName,
+                    'table_name' => $row['name']
+                ])
+                ->execute();
 
             $columnList = [];
             foreach ($columnsStatement->fetchAll(\PDO::FETCH_ASSOC) as $columnsRow) {

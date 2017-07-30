@@ -2,6 +2,8 @@
 
 namespace ptlis\GrepDb;
 
+use Doctrine\DBAL\Connection;
+use Doctrine\DBAL\DriverManager;
 use ptlis\GrepDb\Metadata\DatabaseMetadata;
 use ptlis\GrepDb\Metadata\MetadataFactory;
 
@@ -10,7 +12,7 @@ use ptlis\GrepDb\Metadata\MetadataFactory;
  */
 final class GrepDb
 {
-    /** @var \PDO */
+    /** @var Connection */
     private $connection;
 
     /** @var DatabaseMetadata */
@@ -32,17 +34,14 @@ final class GrepDb
         $databaseName,
         $port = 3306
     ) {
-        $connectionString = implode(
-            ';',
-            [
-                'mysql:host=' . $host,
-                'dbname=' . $databaseName,
-                'port=' . $port
-            ]
-        );
-
-        // Attempt to create connection, allow exception to bubble
-        $this->connection = new \PDO($connectionString, $username, $password);
+        $this->connection = DriverManager::getConnection([
+            'dbname' => $databaseName,
+            'user' => $username,
+            'password' => $password,
+            'host' => $host,
+            'port' => $port,
+            'driver' => 'pdo_mysql'
+        ]);
 
         $factory = new MetadataFactory();
 
