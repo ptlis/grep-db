@@ -23,26 +23,20 @@ final class TableResultGateway
     /** @var string */
     private $searchTerm;
 
-    /** @var int */
-    private $batchSize;
-
 
     /**
      * @param Connection $connection
      * @param TableMetadata $tableMetadata
      * @param string $searchTerm
-     * @param int $batchSize
      */
     public function __construct(
         Connection $connection,
         TableMetadata $tableMetadata,
-        $searchTerm,
-        $batchSize = 1000
+        $searchTerm
     ) {
         $this->connection = $connection;
         $this->tableMetadata = $tableMetadata;
         $this->searchTerm = $searchTerm;
-        $this->batchSize = $batchSize;
     }
 
     /**
@@ -70,18 +64,20 @@ final class TableResultGateway
      */
     public function getMatchingCount()
     {
+        $pkColumnMetadata = $this->getPrimaryKeyColumnMetadata();
+
         // Build query except WHERE clause
         $queryBuilder = $this->connection
             ->createQueryBuilder()
-            ->select('COUNT(*) AS count')
+            ->select('COUNT(DISTINCT ' . $pkColumnMetadata->getName() . ') AS count')
             ->from($this->tableMetadata->getName())
             ->setParameter('search_term', '%' . $this->searchTerm . '%');
 
         // Build the where clauses
         $this->addWhereClauses($queryBuilder, $this->getSearchableColumnNames());
-
         $statement = $queryBuilder->execute();
-        return $statement->fetchColumn(0);
+
+        return intval($statement->fetchColumn(0));
     }
 
     /**
@@ -100,7 +96,7 @@ final class TableResultGateway
             ->createQueryBuilder()
             ->select(
                 array_merge(
-                    [$pkColumnMetadata->getName()],
+                    ['DISTINCT ' . $pkColumnMetadata->getName()],
                     $columnNameList
                 )
             )
@@ -110,34 +106,28 @@ final class TableResultGateway
         // Build the where clauses
         $this->addWhereClauses($queryBuilder, $columnNameList);
 
-        // Run queries in batches
-        for ($i = 0; $i < $this->getMatchingCount(); $i += $this->batchSize) {
-            $queryBuilder
-                ->setFirstResult($i)
-                ->setMaxResults($this->batchSize);
+        // Read data one row at a time, building and yielding a RowResult. This lets us deal with large tables without
+        // a ballooning memory requirement
+        $statement = $queryBuilder->execute();
+        while ($row = $statement->fetch(\PDO::FETCH_ASSOC)) {
 
-            $statement = $queryBuilder->execute();
-
-            foreach ($statement->fetchAll(\PDO::FETCH_ASSOC) as $row) {
-
-                $matchColumnList = [];
-                foreach ($row as $columnName => $value) {
-                    if (false !== stristr($value, $this->searchTerm)) {
-                        $matchColumnList[] = new ColumnResult(
-                            $this->tableMetadata->getColumnMetadata($columnName),
-                            $row[$columnName]
-                        );
-                    }
+            $matchColumnList = [];
+            foreach ($row as $columnName => $value) {
+                if (false !== stristr($value, $this->searchTerm)) {
+                    $matchColumnList[] = new ColumnResult(
+                        $this->tableMetadata->getColumnMetadata($columnName),
+                        $row[$columnName]
+                    );
                 }
-
-                if ($pkColumnMetadata) {
-                    $rowResult = new RowResult($matchColumnList, $pkColumnMetadata, $row[$pkColumnMetadata->getName()]);
-                } else {
-                    $rowResult = new RowResult($matchColumnList);
-                }
-
-                yield $rowResult;
             }
+
+            if ($pkColumnMetadata) {
+                $rowResult = new RowResult($matchColumnList, $pkColumnMetadata, $row[$pkColumnMetadata->getName()]);
+            } else {
+                $rowResult = new RowResult($matchColumnList);
+            }
+
+            yield $rowResult;
         }
     }
 
