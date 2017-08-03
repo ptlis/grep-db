@@ -2,7 +2,6 @@
 
 namespace ptlis\GrepDb;
 
-use Doctrine\DBAL\Connection;
 use Doctrine\DBAL\DriverManager;
 use ptlis\GrepDb\Metadata\DatabaseMetadata;
 use ptlis\GrepDb\Metadata\MetadataFactory;

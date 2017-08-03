@@ -30,7 +30,7 @@ final class RowResult
         $primaryKeyValue = null
     ) {
         foreach ($matchingColumnList as $matchingColumn) {
-            $this->matchingColumnList[$matchingColumn->getColumnMetadata()->getName()] = $matchingColumn;
+            $this->matchingColumnList[$matchingColumn->getMetadata()->getName()] = $matchingColumn;
         }
         $this->primaryKeyColumn = $primaryKeyColumn;
         $this->primaryKeyValue = $primaryKeyValue;

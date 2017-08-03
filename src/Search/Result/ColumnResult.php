@@ -31,7 +31,7 @@ final class ColumnResult
     /**
      * @return ColumnMetadata
      */
-    public function getColumnMetadata()
+    public function getMetadata()
     {
         return $this->column;
     }

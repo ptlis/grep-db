@@ -71,8 +71,7 @@ final class DatabaseResultGateway
             $tableResultGateway = new TableResultGateway(
                 $this->connection,
                 $tableMetadata,
-                $this->searchTerm,
-                $this->batchSize
+                $this->searchTerm
             );
 
             // Only return table result gateway if a match is found

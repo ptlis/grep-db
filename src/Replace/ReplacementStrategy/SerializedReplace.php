@@ -20,15 +20,15 @@ final class SerializedReplace implements ReplacementStrategy
      */
     public function replace($searchTerm, $replaceTerm, $subject)
     {
-        $unserialized = @unserialize($subject);
+        $deserialized = @unserialize($subject);
 
-        if (false === $unserialized) {
+        if (false === $deserialized) {
             throw new \RuntimeException('Error deserializing data');
         }
 
-        $unserialized = $this->recursivelyReplace($searchTerm, $replaceTerm, $unserialized);
+        $deserialized = $this->recursivelyReplace($searchTerm, $replaceTerm, $deserialized);
 
-        return serialize($unserialized);
+        return serialize($deserialized);
     }
 
     /**

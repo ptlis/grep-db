@@ -7,7 +7,6 @@ use ptlis\GrepDb\Replace\ReplacementStrategy\ReplacementStrategy;
 use ptlis\GrepDb\Replace\ReplacementStrategy\SerializedReplace;
 use ptlis\GrepDb\Replace\ReplacementStrategy\StringReplace;
 use ptlis\GrepDb\Search\Result\DatabaseResultGateway;
-use ptlis\GrepDb\Search\Result\RowResult;
 use ptlis\GrepDb\Search\Result\TableResultGateway;
 
 /**
@@ -90,17 +89,17 @@ final class Replace
                 );
 
                 // After replacement the data is too long, we must truncate :(
-                if (strlen($afterReplace) > $matchingColumn->getColumnMetadata()->getMaxLength()) {
-                    $afterReplace = substr($afterReplace, 0, $matchingColumn->getColumnMetadata()->getMaxLength());
+                if (strlen($afterReplace) > $matchingColumn->getMetadata()->getMaxLength()) {
+                    $afterReplace = substr($afterReplace, 0, $matchingColumn->getMetadata()->getMaxLength());
                     // TODO: Properly track this!
                     if ($matchingRow->hasPrimaryKey()) {
-                        echo 'Error: Truncating column named ' . $matchingColumn->getColumnMetadata()->getName() . ', value ' . $matchingRow->getPrimaryKeyValue() . ' in table ' . $tableResultGateway->getMetadata()->getName() . PHP_EOL;
+                        echo 'Error: Truncating column named ' . $matchingColumn->getMetadata()->getName() . ', value ' . $matchingRow->getPrimaryKeyValue() . ' in table ' . $tableResultGateway->getMetadata()->getName() . PHP_EOL;
                     } else {
                         echo 'Error: Truncating column with original value "' . $matchingColumn->getValue() . '"'.PHP_EOL;
                     }
                 }
 
-                $replacementData[$matchingColumn->getColumnMetadata()->getName()] = $afterReplace;
+                $replacementData[$matchingColumn->getMetadata()->getName()] = $afterReplace;
             }
 
             $queryBuilder = $this->connection->createQueryBuilder();

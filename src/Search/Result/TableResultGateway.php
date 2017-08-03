@@ -10,7 +10,7 @@ use ptlis\GrepDb\Metadata\TableMetadata;
 /**
  * Gateway used to retrieve search results for a table.
  *
- * Batches queries, returns them via yeild
+ * Batches queries, returns them via yield
  */
 final class TableResultGateway
 {
