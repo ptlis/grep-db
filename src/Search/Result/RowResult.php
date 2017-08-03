@@ -9,7 +9,7 @@ use ptlis\GrepDb\Metadata\ColumnMetadata;
  */
 final class RowResult
 {
-    /** @var array|ColumnResult[] */
+    /** @var array|FieldResult[] */
     private $matchingColumnList = [];
 
     /** @var null|ColumnMetadata */
@@ -20,7 +20,7 @@ final class RowResult
 
 
     /**
-     * @param ColumnResult[] $matchingColumnList
+     * @param FieldResult[] $matchingColumnList
      * @param ColumnMetadata|null $primaryKeyColumn
      * @param int|null $primaryKeyValue
      */
@@ -39,7 +39,7 @@ final class RowResult
     /**
      * Get array of matching columns in this row.
      *
-     * @return ColumnResult[]
+     * @return FieldResult[]
      */
     public function getMatchingColumns()
     {
@@ -61,7 +61,7 @@ final class RowResult
      * Returns the column result matching the passed name.
      *
      * @param string $columnName
-     * @return ColumnResult
+     * @return FieldResult
      */
     public function getColumnResult($columnName)
     {

@@ -7,7 +7,7 @@ use ptlis\GrepDb\Metadata\ColumnMetadata;
 /**
  * Simple DTO representing a single search result.
  */
-final class ColumnResult
+final class FieldResult
 {
     /** @var ColumnMetadata */
     private $column;
