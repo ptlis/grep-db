@@ -1,6 +1,6 @@
 <?php
 
-namespace ptlis\GrepDb\Replace\Strategy;
+namespace ptlis\GrepDb\Replace\ReplacementStrategy;
 
 /**
  * Interface that replacement strategies must implement.

@@ -3,9 +3,9 @@
 namespace ptlis\GrepDb\Replace;
 
 use Doctrine\DBAL\Connection;
-use ptlis\GrepDb\Replace\Strategy\ReplacementStrategy;
-use ptlis\GrepDb\Replace\Strategy\SerializedReplace;
-use ptlis\GrepDb\Replace\Strategy\StringReplace;
+use ptlis\GrepDb\Replace\ReplacementStrategy\ReplacementStrategy;
+use ptlis\GrepDb\Replace\ReplacementStrategy\SerializedReplace;
+use ptlis\GrepDb\Replace\ReplacementStrategy\StringReplace;
 use ptlis\GrepDb\Search\Result\DatabaseResultGateway;
 use ptlis\GrepDb\Search\Result\RowResult;
 use ptlis\GrepDb\Search\Result\TableResultGateway;

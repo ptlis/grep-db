@@ -1,6 +1,6 @@
 <?php
 
-namespace ptlis\GrepDb\Replace\Strategy;
+namespace ptlis\GrepDb\Replace\ReplacementStrategy;
 
 /**
  * Perform replacement on a simple string.
