@@ -2,30 +2,36 @@
 
 namespace ptlis\GrepDb\Metadata;
 
+use Doctrine\DBAL\Connection;
+
 /**
  * Simple DTO storing database metadata.
  */
 final class DatabaseMetadata
 {
+    /** @var Connection */
+    private $connection;
+
+    /** @var MetadataFactory */
+    private $factory;
+
     /** @var string */
     private $name;
 
-    /** @var TableMetadata[] */
-    private $tableMetadataList = [];
-
 
     /**
+     * @param Connection $connection
+     * @param MetadataFactory $factory
      * @param string $name
-     * @param TableMetadata[] $tableMetadataList
      */
     public function __construct(
-        $name,
-        array $tableMetadataList
+        Connection $connection,
+        MetadataFactory $factory,
+        $name
     ) {
+        $this->connection = $connection;
+        $this->factory = $factory;
         $this->name = $name;
-        foreach ($tableMetadataList as $tableMetadata) {
-            $this->tableMetadataList[$tableMetadata->getTableName()] = $tableMetadata;
-        }
     }
 
     /**
@@ -44,11 +50,7 @@ final class DatabaseMetadata
      */
     public function getTableMetadata($tableName)
     {
-        if (!array_key_exists($tableName, $this->tableMetadataList)) {
-            throw new \RuntimeException('Database doesn\'t contain table named "' . $tableName . '"');
-        }
-
-        return $this->tableMetadataList[$tableName];
+        return $this->factory->buildTableMetadata($this->connection, $this->name, $tableName);
     }
 
     /**
@@ -58,6 +60,10 @@ final class DatabaseMetadata
      */
     public function getAllTableMetadata()
     {
-        return $this->tableMetadataList;
+        $tableMetadataList = [];
+        foreach ($this->factory->getTableNames($this->connection, $this->name) as $tableName) {
+            $tableMetadataList[] = $this->getTableMetadata($tableName);
+        }
+        return $tableMetadataList;
     }
 }

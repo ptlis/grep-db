@@ -2,30 +2,36 @@
 
 namespace ptlis\GrepDb\Metadata;
 
+use Doctrine\DBAL\Connection;
+
 /**
  * DTO storing RDBMS server metadata.
  */
 final class ServerMetadata
 {
+    /** @var Connection */
+    private $connection;
+
+    /** @var MetadataFactory */
+    private $factory;
+
     /** @var string */
     private $host;
 
-    /** @var DatabaseMetadata[] */
-    private $databaseMetadataList = [];
-
 
     /**
+     * @param Connection $connection
      * @param string $host
-     * @param DatabaseMetadata[] $databaseMetadataList
+     * @param MetadataFactory $factory
      */
     public function __construct(
-        $host,
-        array $databaseMetadataList
+        Connection $connection,
+        MetadataFactory $factory,
+        $host
     ) {
+        $this->connection = $connection;
+        $this->factory = $factory;
         $this->host = $host;
-        foreach ($databaseMetadataList as $databaseMetadata) {
-            $this->databaseMetadataList[$databaseMetadata->getName()] = $databaseMetadata;
-        }
     }
 
     /**
@@ -43,7 +49,11 @@ final class ServerMetadata
      */
     public function getAllDatabaseMetadata()
     {
-        return $this->databaseMetadataList;
+        $databaseMetadataList = [];
+        foreach ($this->factory->getDatabaseNames($this->connection) as $databaseName) {
+            $databaseMetadataList[] = $this->getDatabaseMetadata($databaseName);
+        }
+        return $databaseMetadataList;
     }
 
     /**
@@ -54,9 +64,6 @@ final class ServerMetadata
      */
     public function getDatabaseMetadata($databaseName)
     {
-        if (!array_key_exists($databaseName, $this->databaseMetadataList)) {
-            throw new \RuntimeException('RDBMS Server at "' . $this->host . '" doesn\'t contain database named "' . $databaseName . '"');
-        }
-        return $this->databaseMetadataList[$databaseName];
+        return $this->factory->buildDatabaseMetadata($this->connection, $databaseName);
     }
 }

@@ -10,12 +10,12 @@ use Doctrine\DBAL\Connection;
 final class MetadataFactory
 {
     /**
-     * @param string $host
+     * Get a list of database names
+     *
      * @param Connection $connection
-     * @return ServerMetadata
+     * @return string[]
      */
-    public function buildServerMetadata(
-        $host,
+    public function getDatabaseNames(
         Connection $connection
     ) {
         // Internal mySQL database to ignore
@@ -26,15 +26,54 @@ final class MetadataFactory
             'mysql'
         ];
 
-        $databaseMetadataList = [];
+        $databaseNameList = [];
         $statement = $connection->query('SHOW DATABASES');
         while ($databaseName = $statement->fetchColumn(0)) {
             if (!in_array($databaseName, $excludeDatabases)) {
-                $databaseMetadataList[] = $this->buildDatabaseMetadata($connection, $databaseName);
+                $databaseNameList[] = $databaseName;
             }
         }
 
-        return new ServerMetadata($host, $databaseMetadataList);
+        return $databaseNameList;
+    }
+
+    /**
+     * @param Connection $connection
+     * @param string $databaseName
+     * @return string[]
+     */
+    public function getTableNames(
+        Connection $connection,
+        $databaseName
+    ) {
+        $connection->query('USE ' . $databaseName);
+
+        $statement = $connection
+            ->createQueryBuilder()
+            ->select([
+                'tables.TABLE_NAME AS name'
+            ])
+            ->from('information_schema.TABLES', 'tables')
+            ->execute();
+
+        $tableNameList = [];
+        while ($tableName = $statement->fetchColumn(0)) {
+            $tableNameList[] = $tableName;
+        }
+
+        return $tableNameList;
+    }
+
+    /**
+     * @param string $host
+     * @param Connection $connection
+     * @return ServerMetadata
+     */
+    public function buildServerMetadata(
+        $host,
+        Connection $connection
+    ) {
+        return new ServerMetadata($connection, $this, $host);
     }
 
     /**
@@ -46,21 +85,7 @@ final class MetadataFactory
         Connection $connection,
         $databaseName
     ) {
-        // Get table names
-        $tableStatement = $connection
-            ->createQueryBuilder()
-            ->select([
-                'tables.TABLE_NAME AS name'
-            ])
-            ->from('information_schema.TABLES', 'tables')
-            ->execute();
-
-        $tableList = [];
-        foreach ($tableStatement->fetchAll(\PDO::FETCH_ASSOC) as $row) {
-            $tableList[] = $this->buildTableMetadata($connection, $databaseName, $row['name']);
-        }
-
-        return new DatabaseMetadata($databaseName, $tableList);
+        return new DatabaseMetadata($connection, $this, $databaseName);
     }
 
     /**
