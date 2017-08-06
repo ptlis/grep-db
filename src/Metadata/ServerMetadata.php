@@ -43,6 +43,16 @@ final class ServerMetadata
     }
 
     /**
+     * Return an array of database names.
+     *
+     * @return string[]
+     */
+    public function getDatabaseNames()
+    {
+        return $this->factory->getDatabaseNames($this->connection);
+    }
+
+    /**
      * Returns all database metadata.
      *
      * @return DatabaseMetadata[]
@@ -50,7 +60,7 @@ final class ServerMetadata
     public function getAllDatabaseMetadata()
     {
         $databaseMetadataList = [];
-        foreach ($this->factory->getDatabaseNames($this->connection) as $databaseName) {
+        foreach ($this->getDatabaseNames() as $databaseName) {
             $databaseMetadataList[] = $this->getDatabaseMetadata($databaseName);
         }
         return $databaseMetadataList;

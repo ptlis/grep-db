@@ -43,6 +43,16 @@ final class DatabaseMetadata
     }
 
     /**
+     * Get an array of table names.
+     *
+     * @return string[]
+     */
+    public function getTableNames()
+    {
+        return $this->factory->getTableNames($this->connection, $this->name);
+    }
+
+    /**
      * Get the metadata for a single table.
      *
      * @param string $tableName
@@ -61,7 +71,7 @@ final class DatabaseMetadata
     public function getAllTableMetadata()
     {
         $tableMetadataList = [];
-        foreach ($this->factory->getTableNames($this->connection, $this->name) as $tableName) {
+        foreach ($this->getTableNames() as $tableName) {
             $tableMetadataList[] = $this->getTableMetadata($tableName);
         }
         return $tableMetadataList;
