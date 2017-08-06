@@ -3,8 +3,8 @@
 namespace ptlis\GrepDb;
 
 use Doctrine\DBAL\DriverManager;
-use ptlis\GrepDb\Metadata\DatabaseMetadata;
 use ptlis\GrepDb\Metadata\MetadataFactory;
+use ptlis\GrepDb\Metadata\ServerMetadata;
 use ptlis\GrepDb\Replace\Replace;
 use ptlis\GrepDb\Search\Result\DatabaseResultGateway;
 use ptlis\GrepDb\Search\Result\TableResultGateway;
@@ -15,8 +15,8 @@ use ptlis\GrepDb\Search\Search;
  */
 final class GrepDb
 {
-    /** @var DatabaseMetadata */
-    private $databaseMetadata;
+    /** @var ServerMetadata */
+    private $serverMetadata;
 
     /** @var Search */
     private $search;
@@ -29,7 +29,6 @@ final class GrepDb
      * @param string $username
      * @param string $password
      * @param string $host
-     * @param string $databaseName
      * @param int $port
      * @throws \PDOException
      */
@@ -37,11 +36,9 @@ final class GrepDb
         $username,
         $password,
         $host,
-        $databaseName,
         $port = 3306
     ) {
         $connection = DriverManager::getConnection([
-            'dbname' => $databaseName,
             'user' => $username,
             'password' => $password,
             'host' => $host,
@@ -52,57 +49,61 @@ final class GrepDb
         $this->search = new Search($connection);
         $this->replace = new Replace($connection);
 
-        $factory = new MetadataFactory();
-
-        $this->databaseMetadata = $factory->buildDatabaseMetadata($connection, $databaseName);
+        $this->serverMetadata = (new MetadataFactory())->buildServerMetadata($host, $connection);
     }
 
 
     /**
      * Returns a TableResultGateway through which results can be retrieved.
      *
-     * @param string $table
+     * @param string $databaseName
+     * @param string $tableName
      * @param string $searchTerm
      * @return TableResultGateway
      */
-    public function searchTable($table, $searchTerm)
+    public function searchTable($databaseName, $tableName, $searchTerm)
     {
-        return $this->search->searchTable($this->databaseMetadata->getTableMetadata($table), $searchTerm);
+        $databaseMetadata = $this->serverMetadata->getDatabaseMetadata($databaseName);
+        return $this->search->searchTable($databaseMetadata->getTableMetadata($tableName), $searchTerm);
     }
 
     /**
      * Returns a DatabaseResultsGateway through which results can be retrieved.
      *
+     * @param string $databaseName
      * @param string $searchTerm
      * @return DatabaseResultGateway
      */
-    public function searchDatabase($searchTerm)
+    public function searchDatabase($databaseName, $searchTerm)
     {
-        return $this->search->searchDatabase($this->databaseMetadata, $searchTerm);
+        $databaseMetadata = $this->serverMetadata->getDatabaseMetadata($databaseName);
+        return $this->search->searchDatabase($databaseMetadata, $searchTerm);
     }
 
     /**
      * Performs a search and replace on the specified table.
      *
-     * @param string $table
+     * @param string $databaseName
+     * @param string $tableName
      * @param string $searchTerm
      * @param string $replaceTerm
      */
-    public function replaceTable($table, $searchTerm, $replaceTerm)
+    public function replaceTable($databaseName, $tableName, $searchTerm, $replaceTerm)
     {
-        $tableResultGateway = $this->searchTable($table, $searchTerm);
+        $tableResultGateway = $this->searchTable($databaseName, $tableName, $searchTerm);
         $this->replace->replaceTable($tableResultGateway, $replaceTerm);
     }
 
     /**
      * Performs a search and replace on all tables in the database.
      *
+     * @param string $databaseName
      * @param string $searchTerm
      * @param string $replaceTerm
      */
-    public function replaceDatabase($searchTerm, $replaceTerm)
+    public function replaceDatabase($databaseName, $searchTerm, $replaceTerm)
     {
-        $databaseResultGateway = $this->searchDatabase($searchTerm);
+        $databaseResultGateway = $this->searchDatabase($databaseName, $searchTerm);
         $this->replace->replaceDatabase($databaseResultGateway, $replaceTerm);
     }
 }

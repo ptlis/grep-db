@@ -7,19 +7,33 @@ namespace ptlis\GrepDb\Metadata;
  */
 final class DatabaseMetadata
 {
+    /** @var string */
+    private $name;
+
     /** @var TableMetadata[] */
     private $tableMetadataList = [];
 
 
     /**
+     * @param string $name
      * @param TableMetadata[] $tableMetadataList
      */
     public function __construct(
+        $name,
         array $tableMetadataList
     ) {
+        $this->name = $name;
         foreach ($tableMetadataList as $tableMetadata) {
-            $this->tableMetadataList[$tableMetadata->getName()] = $tableMetadata;
+            $this->tableMetadataList[$tableMetadata->getTableName()] = $tableMetadata;
         }
+    }
+
+    /**
+     * @return string
+     */
+    public function getName()
+    {
+        return $this->name;
     }
 
     /**

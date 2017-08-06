@@ -41,11 +41,13 @@ abstract class AbstractTableSearch implements TableSearchStrategy
     {
         $pkColumnMetadata = $this->getPrimaryKeyColumnMetadata();
 
+        $this->connection->query('USE ' . $this->tableMetadata->getDatabaseName());
+
         // Build query except WHERE clause
         $queryBuilder = $this->connection
             ->createQueryBuilder()
             ->select('COUNT(DISTINCT ' . $pkColumnMetadata->getName() . ') AS count')
-            ->from($this->tableMetadata->getName())
+            ->from($this->tableMetadata->getTableName())
             ->setParameter('search_term', '%' . $searchTerm . '%');
 
         foreach ($this->getSearchableColumnNames() as $index => $columnName) {

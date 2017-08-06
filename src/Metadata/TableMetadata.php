@@ -8,7 +8,10 @@ namespace ptlis\GrepDb\Metadata;
 final class TableMetadata
 {
     /** @var string */
-    private $name;
+    private $databaseName;
+
+    /** @var string */
+    private $tableName;
 
     /** @var string */
     private $engine;
@@ -27,7 +30,8 @@ final class TableMetadata
 
 
     /**
-     * @param string $name
+     * @param string $databaseName
+     * @param string $tableName
      * @param string $engine
      * @param string $collation
      * @param int $rowCount
@@ -35,14 +39,16 @@ final class TableMetadata
      * @param ColumnMetadata[] $columnMetadataList
      */
     public function __construct(
-        $name,
+        $databaseName,
+        $tableName,
         $engine,
         $collation,
         $rowCount,
         $charset,
         array $columnMetadataList
     ) {
-        $this->name = $name;
+        $this->databaseName = $databaseName;
+        $this->tableName = $tableName;
         $this->engine = $engine;
         $this->collation = $collation;
         $this->rowCount = $rowCount;
@@ -56,9 +62,17 @@ final class TableMetadata
     /**
      * @return string
      */
-    public function getName()
+    public function getDatabaseName()
     {
-        return $this->name;
+        return $this->databaseName;
+    }
+
+    /**
+     * @return string
+     */
+    public function getTableName()
+    {
+        return $this->tableName;
     }
 
     /**
@@ -102,7 +116,7 @@ final class TableMetadata
     public function getColumnMetadata($columnName)
     {
         if (!array_key_exists($columnName, $this->columnMetadataList)) {
-            throw new \RuntimeException('Table "' . $this->name . '" doesn\'t contain column named "' . $columnName . '"');
+            throw new \RuntimeException('Table "' . $this->tableName . '" doesn\'t contain column named "' . $columnName . '"');
         }
 
         return $this->columnMetadataList[$columnName];
@@ -155,7 +169,7 @@ final class TableMetadata
     public function getPrimaryKey()
     {
         if (!$this->hasPrimaryKey()) {
-            throw new \RuntimeException('No primary key exists on ' . $this->name);
+            throw new \RuntimeException('No primary key exists on ' . $this->tableName);
         }
 
         $primaryKey = null;

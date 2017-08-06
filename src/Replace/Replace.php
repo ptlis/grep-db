@@ -72,7 +72,7 @@ final class Replace
         TableResultGateway $tableResultGateway,
         $replaceTerm
     ) {
-        echo 'Table: ' . $tableResultGateway->getMetadata()->getName() . PHP_EOL;
+        echo 'Table: ' . $tableResultGateway->getMetadata()->getTableName() . PHP_EOL;
 
         $this->connection->query('START TRANSACTION');
 
@@ -93,7 +93,7 @@ final class Replace
                     $afterReplace = substr($afterReplace, 0, $matchingColumn->getMetadata()->getMaxLength());
                     // TODO: Properly track this!
                     if ($matchingRow->hasPrimaryKey()) {
-                        echo 'Error: Truncating column named ' . $matchingColumn->getMetadata()->getName() . ', value ' . $matchingRow->getPrimaryKeyValue() . ' in table ' . $tableResultGateway->getMetadata()->getName() . PHP_EOL;
+                        echo 'Error: Truncating column named ' . $matchingColumn->getMetadata()->getName() . ', value ' . $matchingRow->getPrimaryKeyValue() . ' in table ' . $tableResultGateway->getMetadata()->getTableName() . PHP_EOL;
                     } else {
                         echo 'Error: Truncating column with original value "' . $matchingColumn->getValue() . '"'.PHP_EOL;
                     }
@@ -108,7 +108,7 @@ final class Replace
             if ($matchingRow->hasPrimaryKey()) {
                 $queryBuilder
                     ->update(
-                        $tableResultGateway->getMetadata()->getName(), 'subject'
+                        $tableResultGateway->getMetadata()->getTableName(), 'subject'
                     )
                     ->where('subject.' . $matchingRow->getPrimaryKeyColumn()->getName() . ' = :key')
                     ->setParameters($replacementData)
