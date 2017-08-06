@@ -54,6 +54,8 @@ final class MetadataFactory
                 'tables.TABLE_NAME AS name'
             ])
             ->from('information_schema.TABLES', 'tables')
+            ->where('TABLE_SCHEMA = :schema')
+            ->setParameter('schema', $databaseName)
             ->execute();
 
         $tableNameList = [];
