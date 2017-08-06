@@ -10,7 +10,7 @@ use Doctrine\DBAL\Connection;
 final class MetadataFactory
 {
     /**
-     * Get a list of database names
+     * Return an array of database names.
      *
      * @param Connection $connection
      * @return string[]
@@ -38,6 +38,8 @@ final class MetadataFactory
     }
 
     /**
+     * Return an array of table names in the specified database.
+     *
      * @param Connection $connection
      * @param string $databaseName
      * @return string[]
@@ -67,6 +69,8 @@ final class MetadataFactory
     }
 
     /**
+     * Returns a ServerMetadata instance.
+     *
      * @param string $host
      * @param Connection $connection
      * @return ServerMetadata
@@ -79,6 +83,8 @@ final class MetadataFactory
     }
 
     /**
+     * Returns a DatabaseMetadata instance.
+     *
      * @param Connection $connection
      * @param string $databaseName
      * @return DatabaseMetadata
@@ -91,6 +97,8 @@ final class MetadataFactory
     }
 
     /**
+     * Returns a TableMetadata instance.
+     *
      * @param Connection $connection
      * @param string $databaseName
      * @param string $tableName
