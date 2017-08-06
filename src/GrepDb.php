@@ -52,6 +52,13 @@ final class GrepDb
         $this->serverMetadata = (new MetadataFactory())->buildServerMetadata($host, $connection);
     }
 
+    /**
+     * @return ServerMetadata
+     */
+    public function getServerMetadata()
+    {
+        return $this->serverMetadata;
+    }
 
     /**
      * Returns a TableResultGateway through which results can be retrieved.
