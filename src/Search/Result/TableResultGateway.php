@@ -71,10 +71,12 @@ final class TableResultGateway
     /**
      * Get rows matching the search term.
      *
+     * @param int $offset
+     * @param int $limit
      * @return \Generator|RowResult[]
      */
-    public function getMatchingRows()
+    public function getMatchingRows($offset = -1, $limit = -1)
     {
-        return $this->searchStrategy->getMatches($this->searchTerm);
+        return $this->searchStrategy->getMatches($this->searchTerm, $offset, $limit);
     }
 }

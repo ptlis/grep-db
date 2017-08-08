@@ -25,19 +25,27 @@ final class StringMatchTableSearch extends AbstractTableSearch
     /**
      * {@inheritdoc}
      */
-    public function getMatches($searchTerm)
+    public function getMatches($searchTerm, $offset, $limit)
     {
         $pkColumnMetadata = $this->getPrimaryKeyColumnMetadata();
 
-        $statement = $this
+        $queryBuilder = $this
             ->buildBaseQuery($searchTerm)
             ->select(
                 array_merge(
                     ['DISTINCT ' . $pkColumnMetadata->getName()],
                     $this->getSearchableColumnNames()
                 )
-            )
-            ->execute();
+            );
+
+        // Only apply pagination if the offset & limit are sane
+        if ($offset >= 0 && $limit > 0) {
+            $queryBuilder
+                ->setFirstResult($offset)
+                ->setMaxResults($limit);
+        }
+
+        $statement = $queryBuilder->execute();
 
         // Read data one row at a time, building and yielding a RowResult. This lets us deal with large tables without
         // a ballooning memory requirement

@@ -21,7 +21,9 @@ interface TableSearchStrategy
      * Perform a search for the specified term, returning a generator providing RowResults.
      *
      * @param string $searchTerm
+     * @param int $offset
+     * @param int $limit
      * @return \Generator|RowResult[]
      */
-    public function getMatches($searchTerm);
+    public function getMatches($searchTerm, $offset, $limit);
 }
