@@ -31,17 +31,19 @@ final class Search
      *
      * @param DatabaseMetadata $databaseMetadata
      * @param string $searchTerm
+     * @param string[] $tableNames
+     * @param int $offset
+     * @param int $limit
      * @return DatabaseResultGateway
      */
     public function searchDatabase(
         DatabaseMetadata $databaseMetadata,
-        $searchTerm
+        $searchTerm,
+        array $tableNames = [],
+        $offset = -1,
+        $limit = -1
     ) {
-        return new DatabaseResultGateway(
-            $this->connection,
-            $databaseMetadata,
-            $searchTerm
-        );
+        return new DatabaseResultGateway($this->connection, $databaseMetadata, $searchTerm, $tableNames, $offset, $limit);
     }
 
     /**
@@ -49,16 +51,16 @@ final class Search
      *
      * @param TableMetadata $tableMetadata
      * @param string $searchTerm
+     * @param int $offset
+     * @param int $limit
      * @return TableResultGateway
      */
     public function searchTable(
         TableMetadata $tableMetadata,
-        $searchTerm
+        $searchTerm,
+        $offset = -1,
+        $limit = -1
     ) {
-        return new TableResultGateway(
-            $this->connection,
-            $tableMetadata,
-            $searchTerm
-        );
+        return new TableResultGateway($this->connection, $tableMetadata, $searchTerm, $offset, $limit);
     }
 }

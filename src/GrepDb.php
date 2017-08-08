@@ -66,12 +66,19 @@ final class GrepDb
      * @param string $databaseName
      * @param string $tableName
      * @param string $searchTerm
+     * @param int $offset
+     * @param int $limit
      * @return TableResultGateway
      */
-    public function searchTable($databaseName, $tableName, $searchTerm)
-    {
+    public function searchTable(
+        $databaseName,
+        $tableName,
+        $searchTerm,
+        $offset = -1,
+        $limit = -1
+    ) {
         $databaseMetadata = $this->serverMetadata->getDatabaseMetadata($databaseName);
-        return $this->search->searchTable($databaseMetadata->getTableMetadata($tableName), $searchTerm);
+        return $this->search->searchTable($databaseMetadata->getTableMetadata($tableName), $searchTerm, $offset, $limit);
     }
 
     /**
@@ -79,12 +86,20 @@ final class GrepDb
      *
      * @param string $databaseName
      * @param string $searchTerm
+     * @param string[] $tableNames
+     * @param int $offset
+     * @param int $limit
      * @return DatabaseResultGateway
      */
-    public function searchDatabase($databaseName, $searchTerm)
-    {
+    public function searchDatabase(
+        $databaseName,
+        $searchTerm,
+        array $tableNames = [],
+        $offset = -1,
+        $limit = -1
+    ) {
         $databaseMetadata = $this->serverMetadata->getDatabaseMetadata($databaseName);
-        return $this->search->searchDatabase($databaseMetadata, $searchTerm);
+        return $this->search->searchDatabase($databaseMetadata, $searchTerm, $tableNames, $offset, $limit);
     }
 
     /**

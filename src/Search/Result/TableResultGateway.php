@@ -19,6 +19,12 @@ final class TableResultGateway
     /** @var string */
     private $searchTerm;
 
+    /** @var int */
+    private $offset;
+
+    /** @var int */
+    private $limit;
+
     /** @var StringMatchTableSearch */
     protected $searchStrategy;
 
@@ -27,14 +33,20 @@ final class TableResultGateway
      * @param Connection $connection
      * @param TableMetadata $tableMetadata
      * @param string $searchTerm
+     * @param int $offset
+     * @param int $limit
      */
     public function __construct(
         Connection $connection,
         TableMetadata $tableMetadata,
-        $searchTerm
+        $searchTerm,
+        $offset = -1,
+        $limit = -1
     ) {
         $this->tableMetadata = $tableMetadata;
         $this->searchTerm = $searchTerm;
+        $this->offset = $offset;
+        $this->limit = $limit;
 
         // TODO: Inject
         $this->searchStrategy = new StringMatchTableSearch($connection, $tableMetadata);
@@ -69,14 +81,32 @@ final class TableResultGateway
     }
 
     /**
-     * Get rows matching the search term.
+     * Return the maximum number of rows that would have been returned.
      *
-     * @param int $offset
-     * @param int $limit
+     * @return int
+     */
+    public function getMaxRowsReturned()
+    {
+        $totalMatchCount = $this->getMatchingCount();
+
+        if (-1 == $this->limit) {
+            $max = $totalMatchCount;
+        } else if ($this->limit > $totalMatchCount) {
+            $max = $totalMatchCount;
+        } else {
+            $max = $this->limit;
+        }
+
+        return $max;
+    }
+
+    /**
+     * Get rows matching the search term, within the specified range.
+     *
      * @return \Generator|RowResult[]
      */
-    public function getMatchingRows($offset = -1, $limit = -1)
+    public function getMatchingRows()
     {
-        return $this->searchStrategy->getMatches($this->searchTerm, $offset, $limit);
+        return $this->searchStrategy->getMatches($this->searchTerm, $this->offset, $this->limit);
     }
 }

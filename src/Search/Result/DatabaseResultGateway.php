@@ -19,26 +19,38 @@ final class DatabaseResultGateway
     /** @var string */
     private $searchTerm;
 
+    /** @var string[] */
+    private $tableNames;
+
     /** @var int */
-    private $batchSize;
+    private $offset;
+
+    /** @var int */
+    private $limit;
 
 
     /**
      * @param Connection $connection
      * @param DatabaseMetadata $databaseMetadata
      * @param string $searchTerm
-     * @param int $batchSize
+     * @param string[] $tableNames
+     * @param int $offset
+     * @param int $limit
      */
     public function __construct(
         Connection $connection,
         DatabaseMetadata $databaseMetadata,
         $searchTerm,
-        $batchSize = 100
+        array $tableNames,
+        $offset = -1,
+        $limit = -1
     ) {
         $this->connection = $connection;
         $this->databaseMetadata = $databaseMetadata;
         $this->searchTerm = $searchTerm;
-        $this->batchSize = $batchSize;
+        $this->tableNames = $tableNames;
+        $this->offset = $offset;
+        $this->limit = $limit;
     }
 
     /**
@@ -66,19 +78,108 @@ final class DatabaseResultGateway
      */
     public function getMatchingTables()
     {
-        $tableResultList = [];
-        foreach ($this->databaseMetadata->getAllTableMetadata() as $tableMetadata) {
-            $tableResultGateway = new TableResultGateway(
-                $this->connection,
-                $tableMetadata,
-                $this->searchTerm
-            );
+        $runningCount = 0;
 
-            // Only return table result gateway if a match is found
-            if (
-                $tableMetadata->hasStringTypeColumn()
-                && $tableResultGateway->getMatchingCount() > 0
-            ) {
+        $tableResultList = [];
+        foreach ($this->tableNames as $tableName) {
+            $tableMetadata = $this->databaseMetadata->getTableMetadata($tableName);
+            $tableResultGateway = new TableResultGateway($this->connection, $tableMetadata, $this->searchTerm);
+
+            // Call once as we re-use this value several times, and we don't want to hit the db every time.
+            $tableCount = $tableResultGateway->getMatchingCount();
+
+            // Do nothing if there were no matches
+            if (0 === $tableCount) {
+                continue;
+            }
+
+            // An offset & limit was specified
+            if ($this->offset >= 0 && $this->limit > 1) {
+                $rangeStart = $this->offset;
+                $rangeEnd = $this->offset + $this->limit;
+                $tableOffset = 0;
+                $tableLimit = 0;
+                $hasResults = false;
+
+                /**
+                 * The rows found in the table sit within the bounds specified by the range:
+                 *
+                 *                      running count     run + table count
+                 *                            |                  |
+                 * +-----------------------+--+------------------+----+----------------------------+
+                 * |                       |                          |                            |
+                 * 0                     start                       end                     database total
+                 */
+                if ($runningCount >= $rangeStart && $runningCount + $tableCount <= $rangeEnd) {
+                    $tableOffset = 0;
+                    $tableLimit = $tableCount;
+                    $hasResults = true;
+
+                /**
+                 * The range's start and end sit within a single table's results:
+                 *
+                 *         running count                                 run + table count
+                 *               |                                              |
+                 * +-------------+---------+--------------------------+---------+------------------+
+                 * |                       |                          |                            |
+                 * 0                     start                       end                     database total
+                 */
+                } else if ($runningCount <= $rangeStart && $runningCount + $tableCount >= $rangeEnd) {
+                    $tableOffset = $rangeStart - $runningCount;
+                    $tableLimit = $this->limit;
+                    $hasResults = true;
+
+                /**
+                 * The range start begins part-way through a tables results, but there aren't enough remaining to
+                 * exceed the range end:
+                 *
+                 *         running count         run + table count
+                 *               |                      |
+                 * +-------------+---------+------------+-------------+----------------------------+
+                 * |                       |                          |                            |
+                 * 0                     start                       end                     database total
+                 */
+                } else if ($runningCount <= $rangeStart && $runningCount + $tableCount <= $rangeEnd) {
+                    $tableOffset = $rangeStart - $runningCount;
+                    $tableLimit = ($runningCount + $tableCount) - $rangeStart;
+                    $hasResults = true;
+
+                /**
+                 * The running count sits within the range, but the run + table count sit after the end of the range
+                 *
+                 *                                running count         run + table count
+                 *                                      |                      |
+                 * +-----------------------+------------+-------------+--------+-------------------+
+                 * |                       |                          |                            |
+                 * 0                     start                       end                     database total
+                 */
+                } else if ($runningCount >= $rangeStart && $runningCount + $tableCount >= $rangeEnd) {
+                    $tableOffset = 0;
+                    $tableLimit = $rangeEnd - $runningCount;
+                    $hasResults = true;
+                }
+
+                // The table has results within the specified range
+                if ($hasResults) {
+
+                    $tableResultList[] = new TableResultGateway(
+                        $this->connection,
+                        $tableMetadata,
+                        $this->searchTerm,
+                        $tableOffset,
+                        $tableLimit
+                    );
+                }
+
+                $runningCount += $tableCount;
+
+                // Break early if we've found the required range
+                if ($runningCount > $rangeEnd) {
+                    break;
+                }
+
+
+            } else {
                 $tableResultList[] = $tableResultGateway;
             }
         }
