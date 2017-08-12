@@ -6,6 +6,8 @@ use Doctrine\DBAL\DriverManager;
 use ptlis\GrepDb\Metadata\MetadataFactory;
 use ptlis\GrepDb\Metadata\ServerMetadata;
 use ptlis\GrepDb\Replace\Replace;
+use ptlis\GrepDb\Replace\Result\DatabaseReplaceResult;
+use ptlis\GrepDb\Replace\Result\TableReplaceResult;
 use ptlis\GrepDb\Search\Result\DatabaseResultGateway;
 use ptlis\GrepDb\Search\Result\TableResultGateway;
 use ptlis\GrepDb\Search\Search;
@@ -99,6 +101,15 @@ final class GrepDb
         $limit = -1
     ) {
         $databaseMetadata = $this->serverMetadata->getDatabaseMetadata($databaseName);
+
+        // If no table names were specified then try to search all tables
+        if (!count($tableNames)) {
+            foreach ($databaseMetadata->getTableNames() as $tableName) {
+                if ($databaseMetadata->getTableMetadata($tableName)->hasStringTypeColumn()) {
+                    $tableNames[] = $tableName;
+                }
+            }
+        }
         return $this->search->searchDatabase($databaseMetadata, $searchTerm, $tableNames, $offset, $limit);
     }
 
@@ -109,11 +120,13 @@ final class GrepDb
      * @param string $tableName
      * @param string $searchTerm
      * @param string $replaceTerm
+     * @param bool $incrementalReturn Set to true to get intermediate values via generator
+     * @return \Generator|TableReplaceResult[]
      */
-    public function replaceTable($databaseName, $tableName, $searchTerm, $replaceTerm)
+    public function replaceTable($databaseName, $tableName, $searchTerm, $replaceTerm, $incrementalReturn = false)
     {
         $tableResultGateway = $this->searchTable($databaseName, $tableName, $searchTerm);
-        $this->replace->replaceTable($tableResultGateway, $replaceTerm);
+        return $this->replace->replaceTable($tableResultGateway, $replaceTerm, $incrementalReturn);
     }
 
     /**
@@ -122,10 +135,12 @@ final class GrepDb
      * @param string $databaseName
      * @param string $searchTerm
      * @param string $replaceTerm
+     * @param bool $incrementalReturn Set to true to get intermediate values via generator
+     * @return \Generator|DatabaseReplaceResult[]
      */
-    public function replaceDatabase($databaseName, $searchTerm, $replaceTerm)
+    public function replaceDatabase($databaseName, $searchTerm, $replaceTerm, $incrementalReturn = false)
     {
         $databaseResultGateway = $this->searchDatabase($databaseName, $searchTerm);
-        $this->replace->replaceDatabase($databaseResultGateway, $replaceTerm);
+        return $this->replace->replaceDatabase($databaseResultGateway, $replaceTerm, $incrementalReturn);
     }
 }

@@ -6,6 +6,8 @@ use Doctrine\DBAL\Connection;
 use ptlis\GrepDb\Replace\ReplacementStrategy\ReplacementStrategy;
 use ptlis\GrepDb\Replace\ReplacementStrategy\SerializedReplace;
 use ptlis\GrepDb\Replace\ReplacementStrategy\StringReplace;
+use ptlis\GrepDb\Replace\Result\DatabaseReplaceResult;
+use ptlis\GrepDb\Replace\Result\TableReplaceResult;
 use ptlis\GrepDb\Search\Result\DatabaseResultGateway;
 use ptlis\GrepDb\Search\Result\TableResultGateway;
 
@@ -26,13 +28,13 @@ final class Replace
 
     /**
      * @param Connection $connection
-     * @param int $batchSize
      * @param ReplacementStrategy[] $replacementStrategyList
+     * @param int $batchSize
      */
     public function __construct(
         Connection $connection,
-        $batchSize = 100,
-        array $replacementStrategyList = []
+        array $replacementStrategyList = [],
+        $batchSize = 100
     ) {
         $this->connection = $connection;
         $this->batchSize = $batchSize;
@@ -52,14 +54,36 @@ final class Replace
      *
      * @param DatabaseResultGateway $databaseResultsGateway
      * @param string $replaceTerm
+     * @param bool $incrementalReturn Set to true to get intermediate values via generator
+     * @return \Generator|TableReplaceResult[]
      */
     public function replaceDatabase(
         DatabaseResultGateway $databaseResultsGateway,
-        $replaceTerm
+        $replaceTerm,
+        $incrementalReturn
     ) {
+        $tableResultList = [];
+
         foreach ($databaseResultsGateway->getMatchingTables() as $tableResultGateway) {
-            $this->replaceTable($tableResultGateway, $replaceTerm);
+
+            // Run generator to incrementally replace results
+            $generator = $this->replaceTable($tableResultGateway, $replaceTerm, $incrementalReturn);
+            foreach ($generator as $tableReplaceResult) {
+                $tableResultList[$tableReplaceResult->getMetadata()->getTableName()] = $tableReplaceResult;
+
+                yield new DatabaseReplaceResult(
+                    $databaseResultsGateway->getMetadata(),
+                    $tableResultList,
+                    false
+                );
+            }
         }
+
+        yield new DatabaseReplaceResult(
+            $databaseResultsGateway->getMetadata(),
+            $tableResultList,
+            true
+        );
     }
 
     /**
@@ -67,16 +91,19 @@ final class Replace
      *
      * @param TableResultGateway $tableResultGateway
      * @param string $replaceTerm
+     * @param bool $incrementalReturn Set to true to get intermediate values via generator.
+     * @return \Generator|TableReplaceResult[]
      */
     public function replaceTable(
         TableResultGateway $tableResultGateway,
-        $replaceTerm
+        $replaceTerm,
+        $incrementalReturn
     ) {
-        echo 'Table: ' . $tableResultGateway->getMetadata()->getTableName() . PHP_EOL;
-
         $this->connection->query('START TRANSACTION');
 
+        $columnCount = 0;
         $rowCount = 0;
+        $errorList = [];
         foreach ($tableResultGateway->getMatchingRows() as $matchingRow) {
             $rowCount++;
 
@@ -90,16 +117,16 @@ final class Replace
 
                 // After replacement the data is too long, we must truncate :(
                 if (strlen($afterReplace) > $matchingColumn->getMetadata()->getMaxLength()) {
-                    $afterReplace = substr($afterReplace, 0, $matchingColumn->getMetadata()->getMaxLength());
-                    // TODO: Properly track this!
                     if ($matchingRow->hasPrimaryKey()) {
-                        echo 'Error: Truncating column named ' . $matchingColumn->getMetadata()->getName() . ', value ' . $matchingRow->getPrimaryKeyValue() . ' in table ' . $tableResultGateway->getMetadata()->getTableName() . PHP_EOL;
+                        $errorList[] = 'Error: Truncating column named ' . $matchingColumn->getMetadata()->getName() . ', value "' . $matchingRow->getPrimaryKeyValue() . '"" in table ' . $tableResultGateway->getMetadata()->getTableName();
                     } else {
-                        echo 'Error: Truncating column with original value "' . $matchingColumn->getValue() . '"'.PHP_EOL;
+                        $errorList[] = 'Error: Truncating column with original value "' . $matchingColumn->getValue() . '"';
                     }
-                }
 
-                $replacementData[$matchingColumn->getMetadata()->getName()] = $afterReplace;
+                    $replacementData[$matchingColumn->getMetadata()->getName()] = $matchingColumn->getValue();
+                } else {
+                    $replacementData[$matchingColumn->getMetadata()->getName()] = $afterReplace;
+                }
             }
 
             $queryBuilder = $this->connection->createQueryBuilder();
@@ -115,10 +142,12 @@ final class Replace
                     ->setParameter('key', $matchingRow->getPrimaryKeyValue());
 
                 foreach ($replacementData as $columnName => $columnValue) {
+                    $columnCount++;
                     $queryBuilder->set('subject.' . $columnName, ':' . $columnName);
                 }
 
-                // If there is no primary key then use the matched columns & values
+            // If there is no primary key then use the matched columns & values
+            // TODO: Implement!
             } else {
                 var_dump('no pk');die();
             }
@@ -126,9 +155,18 @@ final class Replace
             $queryBuilder->execute();
 
             if (0 === ($rowCount % $this->batchSize)) {
-                echo 'Completed ' . $rowCount . ' rows' . PHP_EOL;
                 $this->connection->query('COMMIT');
                 $this->connection->query('START TRANSACTION');
+
+                if ($incrementalReturn) {
+                    yield new TableReplaceResult(
+                        $tableResultGateway->getMetadata(),
+                        $rowCount,
+                        $columnCount,
+                        $errorList,
+                        false
+                    );
+                }
             }
         }
 
@@ -136,7 +174,13 @@ final class Replace
             $this->connection->query('COMMIT');
         }
 
-        echo 'Completed ' . $rowCount . ' rows' . PHP_EOL;
+        yield new TableReplaceResult(
+            $tableResultGateway->getMetadata(),
+            $rowCount,
+            $columnCount,
+            $errorList,
+            true
+        );
     }
 
     /**
