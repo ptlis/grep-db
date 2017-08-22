@@ -3,6 +3,7 @@
 namespace ptlis\GrepDb\Replace;
 
 use Doctrine\DBAL\Connection;
+use ptlis\GrepDb\Metadata\TableMetadata;
 use ptlis\GrepDb\Replace\ReplacementStrategy\ReplacementStrategy;
 use ptlis\GrepDb\Replace\ReplacementStrategy\SerializedReplace;
 use ptlis\GrepDb\Replace\ReplacementStrategy\StringReplace;
@@ -99,6 +100,8 @@ final class Replace
         $replaceTerm,
         $incrementalReturn
     ) {
+        $this->setCharset($tableResultGateway->getMetadata());
+
         $this->connection->query('START TRANSACTION');
 
         $columnCount = 0;
@@ -181,6 +184,19 @@ final class Replace
             $errorList,
             true
         );
+    }
+
+    /**
+     * Set the correct charset & collation for the table.
+     *
+     * @param TableMetadata $metadata
+     */
+    private function setCharset(
+        TableMetadata $metadata
+    ) {
+        $this->connection
+            ->query('SET NAMES \'' . $metadata->getCharset() . '\' COLLATE \'' . $metadata->getCollation() . '\'')
+            ->execute();
     }
 
     /**
