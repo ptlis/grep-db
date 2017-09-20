@@ -1,4 +1,9 @@
 
+# 0.0.11 - 2017-09-20
+
+* Retrieve additional metadata for columns (whether it is nullable and whether it is indexed).
+
+
 # 0.0.10 - 2017-09-20
 
 * Fix listing of tables; Add constraint to ensure we only deal with 'real' tables, excluding things like views.
