@@ -16,7 +16,7 @@ final class StringMatchTableSearch extends AbstractTableSearch
     {
         $statement = $this
             ->buildBaseQuery($searchTerm)
-            ->select('COUNT(DISTINCT ' . $this->getPrimaryKeyColumnMetadata()->getName() . ') AS count')
+            ->select('COUNT(*) AS count')
             ->execute();
 
         return intval($statement->fetchColumn(0));
@@ -27,13 +27,10 @@ final class StringMatchTableSearch extends AbstractTableSearch
      */
     public function getMatches($searchTerm, $offset, $limit)
     {
-        $pkColumnMetadata = $this->getPrimaryKeyColumnMetadata();
-
         $queryBuilder = $this
             ->buildBaseQuery($searchTerm)
             ->select(
                 array_merge(
-                    ['DISTINCT ' . $pkColumnMetadata->getName()],
                     $this->getSearchableColumnNames()
                 )
             );
@@ -62,6 +59,7 @@ final class StringMatchTableSearch extends AbstractTableSearch
                 }
             }
 
+            $pkColumnMetadata = $this->getPrimaryKeyColumnMetadata();
             if ($pkColumnMetadata) {
                 $rowResult = new RowResult($matchColumnList, $pkColumnMetadata, $row[$pkColumnMetadata->getName()]);
             } else {
