@@ -57,6 +57,7 @@ final class MetadataFactory
             ])
             ->from('information_schema.TABLES', 'tables')
             ->where('TABLE_SCHEMA = :schema')
+            ->andWhere('TABLE_TYPE = "BASE TABLE"')
             ->setParameter('schema', $databaseName)
             ->execute();
 
