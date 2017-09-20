@@ -138,9 +138,17 @@ final class MetadataFactory
             ->createQueryBuilder()
             ->select([
                 'columns.COLUMN_NAME AS name',
-                'columns.DATA_TYPE AS type',
-                'columns.COLUMN_KEY AS column_key',
-                'columns.CHARACTER_MAXIMUM_LENGTH AS max_length'
+                'columns.COLUMN_TYPE AS type',
+                'columns.CHARACTER_MAXIMUM_LENGTH AS max_length',
+                '"PRI" = columns.COLUMN_KEY AS is_primary_key',
+                '"YES" = columns.IS_NULLABLE AS is_nullable',
+                '(
+                    SELECT COUNT(*) 
+                    FROM   INFORMATION_SCHEMA.STATISTICS 
+                    WHERE  TABLE_SCHEMA = :schema 
+                    AND    TABLE_NAME = :table_name 
+                    AND    COLUMN_NAME = columns.COLUMN_NAME
+                ) AS is_indexed'
             ])
             ->from('information_schema.COLUMNS', 'columns')
             ->where('TABLE_SCHEMA = :schema')
@@ -152,12 +160,15 @@ final class MetadataFactory
             ->execute();
 
         $columnList = [];
+
         foreach ($columnsStatement->fetchAll(\PDO::FETCH_ASSOC) as $columnsRow) {
             $columnList[] = new ColumnMetadata(
                 $columnsRow['name'],
                 $columnsRow['type'],
                 $columnsRow['max_length'],
-                'PRI' === $columnsRow['column_key']
+                boolval($columnsRow['is_primary_key']),
+                boolval($columnsRow['is_nullable']),
+                boolval($columnsRow['is_indexed'])
             );
         }
 

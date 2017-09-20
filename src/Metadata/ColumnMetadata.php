@@ -19,23 +19,35 @@ final class ColumnMetadata
     /** @var bool */
     private $primaryKey;
 
+    /** @var bool */
+    private $nullable;
+
+    /** @var bool */
+    private $indexed;
+
 
     /**
      * @param string $name
      * @param string $type
      * @param int $maxLength
      * @param bool $primaryKey
+     * @param bool $nullable
+     * @param bool $indexed
      */
     public function __construct(
         $name,
         $type,
         $maxLength,
-        $primaryKey
+        $primaryKey,
+        $nullable,
+        $indexed
     ) {
         $this->name = $name;
         $this->type = $type;
         $this->maxLength = $maxLength;
         $this->primaryKey = $primaryKey;
+        $this->nullable = $nullable;
+        $this->indexed = $indexed;
     }
 
     /**
@@ -68,6 +80,22 @@ final class ColumnMetadata
     public function isPrimaryKey()
     {
         return $this->primaryKey;
+    }
+
+    /**
+     * @return bool
+     */
+    public function isNullable()
+    {
+        return $this->nullable;
+    }
+
+    /**
+     * @return bool
+     */
+    public function isIndexed()
+    {
+        return $this->indexed;
     }
 
     /**
