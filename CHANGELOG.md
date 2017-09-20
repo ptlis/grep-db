@@ -1,4 +1,9 @@
 
+# 0.0.10 - 2017-09-20
+
+* Fix listing of tables; Add constraint to ensure we only deal with 'real' tables, excluding things like views.
+
+
 # 0.0.9 - 2017-08-22
 
 * Fix charset handling.
