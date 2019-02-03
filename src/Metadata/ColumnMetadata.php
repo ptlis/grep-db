@@ -107,20 +107,28 @@ final class ColumnMetadata
      */
     public function isStringType()
     {
-        return in_array(
-            strtolower($this->type),
-            [
-                'char',
-                'varchar',
-                'tinyblob',
-                'blob',
-                'mediumblob',
-                'longblob',
-                'tinytext',
-                'text',
-                'mediumtext',
-                'longtext'
-            ]
-        );
+        $stringTypeList = [
+            'char',
+            'varchar',
+            'tinyblob',
+            'blob',
+            'mediumblob',
+            'longblob',
+            'tinytext',
+            'text',
+            'mediumtext',
+            'longtext'
+        ];
+
+        $isString = false;
+
+        $type = trim(strtolower($this->getType()));
+        foreach ($stringTypeList as $stringType) {
+            if (substr($type, 0, strlen($stringType)) === $stringType) {
+                $isString = true;
+            }
+        }
+
+        return $isString;
     }
 }
