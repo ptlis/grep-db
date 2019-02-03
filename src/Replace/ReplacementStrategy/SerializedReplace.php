@@ -43,6 +43,11 @@ final class SerializedReplace implements ReplacementStrategy
     {
         if (is_object($subject)) {
             foreach ($subject as $key => $value) {
+                if ($subject instanceof \__PHP_Incomplete_Class) {
+                    $error = 'Could not deserialize class ' . $subject->__PHP_Incomplete_Class_Name;
+                    var_dump($subject);die();
+                }
+
                 $subject->{$key} = $this->recursivelyReplace($searchTerm, $replaceTerm, $value);
             }
 

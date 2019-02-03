@@ -10,7 +10,7 @@
         }
     ],
     "require": {
-        "php": ">=5.5.0",
+        "php": ">=7.1.0",
         "doctrine/dbal": "^2.5"
     },
     "autoload": {
@@ -18,5 +18,8 @@
             "ptlis\\GrepDb\\": "src/",
             "ptlis\\GrepDb\\Test\\": "tests/"
         }
+    },
+    "require-dev": {
+        "phpunit/phpunit": "^8.0"
     }
 }
