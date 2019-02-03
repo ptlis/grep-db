@@ -27,13 +27,20 @@ final class StringMatchTableSearch extends AbstractTableSearch
      */
     public function getMatches($searchTerm, $offset, $limit)
     {
+        // Lookup primary key & any searchable columns
+        $lookupColumns = $this->getSearchableColumnNames();
+        if ($this->getPrimaryKeyColumnMetadata()) {
+            $lookupColumns = array_merge(
+                [
+                    $this->getPrimaryKeyColumnMetadata()->getName()
+                ],
+                $lookupColumns
+            );
+        }
+
         $queryBuilder = $this
             ->buildBaseQuery($searchTerm)
-            ->select(
-                array_merge(
-                    $this->getSearchableColumnNames()
-                )
-            );
+            ->select($lookupColumns);
 
         // Only apply pagination if the offset & limit are sane
         if ($offset >= 0 && $limit > 0) {
