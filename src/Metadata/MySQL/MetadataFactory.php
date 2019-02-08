@@ -1,6 +1,12 @@
-<?php
+<?php declare(strict_types=1);
 
-namespace ptlis\GrepDb\Metadata;
+/**
+ * @copyright   (c) 2017-present brian ridley
+ * @author      brian ridley <ptlis@ptlis.net>
+ * @license     http://opensource.org/licenses/MIT MIT
+ */
+
+namespace ptlis\GrepDb\Metadata\MySQL;
 
 use Doctrine\DBAL\Connection;
 
@@ -10,47 +16,36 @@ use Doctrine\DBAL\Connection;
 final class MetadataFactory
 {
     /**
-     * Return an array of database names.
-     *
-     * @param Connection $connection
-     * @return string[]
+     * Query the server and build server metadata DTO.
      */
-    public function getDatabaseNames(
+    public function getServerMetadata(
         Connection $connection
     ) {
-        // Internal mySQL database to ignore
-        $excludeDatabases = [
-            'information_schema',
-            'performance_schema',
-            'sys',
-            'mysql'
-        ];
-
-        $databaseNameList = [];
-        $statement = $connection->query('SHOW DATABASES');
-        while ($databaseName = $statement->fetchColumn(0)) {
-            if (!in_array($databaseName, $excludeDatabases)) {
-                $databaseNameList[] = $databaseName;
-            }
+        // Attempt to list databases, ignoring internal databases
+        try {
+            $statement = $connection->query('SHOW DATABASES WHERE `Database` NOT IN ("information_schema", "performance_schema", "sys", "mysql");');
+        } catch (\Throwable $e) {
+            throw new \RuntimeException('Failed to list databases: ' . $e->getMessage());
         }
 
-        return $databaseNameList;
+        $databaseMetadataList = [];
+        /** @var string $databaseName */
+        while ($databaseName = $statement->fetchColumn(0)) {
+            $databaseMetadataList[] = $this->getDatabaseMetadata($connection, $databaseName);
+        }
+
+        return new ServerMetadata($connection->getHost(), $databaseMetadataList);
     }
 
     /**
-     * Return an array of table names in the specified database.
-     *
-     * @param Connection $connection
-     * @param string $databaseName
-     * @return string[]
+     * Query the server and build database metadata DTO.
      */
-    public function getTableNames(
+    public function getDatabaseMetadata(
         Connection $connection,
-        $databaseName
-    ) {
-        $connection->query('USE ' . $databaseName);
-
-        $statement = $connection
+        string $databaseName
+    ): DatabaseMetadata {
+        // Get a list of table names
+        $tableNameStatement = $connection
             ->createQueryBuilder()
             ->select([
                 'tables.TABLE_NAME AS name'
@@ -61,55 +56,23 @@ final class MetadataFactory
             ->setParameter('schema', $databaseName)
             ->execute();
 
-        $tableNameList = [];
-        while ($tableName = $statement->fetchColumn(0)) {
-            $tableNameList[] = $tableName;
+        // Build table metadata
+        $tableMetadataList = [];
+        while ($tableName = $tableNameStatement->fetchColumn(0)) {
+            $tableMetadataList[] = $this->getTableMetadata($connection, $databaseName, $tableName);
         }
 
-        return $tableNameList;
+        return new DatabaseMetadata($databaseName, $tableMetadataList);
     }
 
     /**
-     * Returns a ServerMetadata instance.
-     *
-     * @param string $host
-     * @param Connection $connection
-     * @return ServerMetadata
+     * Query the server and build table metadata DTO.
      */
-    public function buildServerMetadata(
-        $host,
-        Connection $connection
-    ) {
-        return new ServerMetadata($connection, $this, $host);
-    }
-
-    /**
-     * Returns a DatabaseMetadata instance.
-     *
-     * @param Connection $connection
-     * @param string $databaseName
-     * @return DatabaseMetadata
-     */
-    public function buildDatabaseMetadata(
+    public function getTableMetadata(
         Connection $connection,
-        $databaseName
-    ) {
-        return new DatabaseMetadata($connection, $this, $databaseName);
-    }
-
-    /**
-     * Returns a TableMetadata instance.
-     *
-     * @param Connection $connection
-     * @param string $databaseName
-     * @param string $tableName
-     * @return TableMetadata
-     */
-    public function buildTableMetadata(
-        Connection $connection,
-        $databaseName,
-        $tableName
-    ) {
+        string $databaseName,
+        string $tableName
+    ): TableMetadata {
         // Get top-level table information
         $tableStatement = $connection
             ->createQueryBuilder()
@@ -159,13 +122,15 @@ final class MetadataFactory
             ])
             ->execute();
 
-        $columnList = [];
-
+        // Build column metadata
+        $columnMetadataList = [];
         foreach ($columnsStatement->fetchAll(\PDO::FETCH_ASSOC) as $columnsRow) {
-            $columnList[] = new ColumnMetadata(
+            $columnMetadataList[] = new ColumnMetadata(
+                $databaseName,
+                $tableName,
                 $columnsRow['name'],
                 $columnsRow['type'],
-                $columnsRow['max_length'],
+                is_null($columnsRow['max_length']) ? null : intval($columnsRow['max_length']),
                 boolval($columnsRow['is_primary_key']),
                 boolval($columnsRow['is_nullable']),
                 boolval($columnsRow['is_indexed'])
@@ -177,9 +142,9 @@ final class MetadataFactory
             $tableName,
             $tableRow['engine'],
             $tableRow['collation'],
-            $tableRow['row_count'],
             $tableRow['charset'],
-            $columnList
+            intval($tableRow['row_count']),
+            $columnMetadataList
         );
     }
 }
