@@ -26,7 +26,6 @@ final class SerializedFieldReplaceStrategy implements FieldReplaceStrategy
 
         try {
             return $editor->containsCount($subject, $searchTerm) > 0;
-
         } catch (\Throwable $e) {
             return false;
         }
@@ -58,7 +57,6 @@ final class SerializedFieldReplaceStrategy implements FieldReplaceStrategy
                 $subject,
                 $editor->replace($subject, $searchTerm, $replaceTerm)
             );
-
         } catch (\Throwable $e) {
             return new FieldReplaceResult(
                 $columnMetadata,

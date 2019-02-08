@@ -121,7 +121,6 @@ final class Replace
 
             // Update using original values
             } else {
-
                 $whereCount = 0;
                 foreach ($rowReplaceResult->getFieldResultList() as $fieldReplaceResult) {
                     $columnName = $fieldReplaceResult->getColumnMetadata()->getColumnName();
@@ -165,7 +164,6 @@ final class Replace
 
             // Avoid truncation if the replacement string is longer than the source
             if (strlen($fieldReplaceResult->getNewValue()) > $fieldSearchResult->getMetadata()->getMaxLength()) {
-
                 // Tailor error message depending on whether or not there is a primary key
                 if (null !== $rowSearchResult->getTableMetadata()->getPrimaryKeyMetadata()) {
                     $errorList[] = 'Length of new value (' . strlen($fieldReplaceResult->getNewValue()) . ') exceeds max length (' . $fieldSearchResult->getMetadata()->getMaxLength() . ') for column "' . $fieldSearchResult->getMetadata()->getTableName() . '.' . $fieldSearchResult->getMetadata()->getColumnName() . '" with primary key "' . $rowSearchResult->getPrimaryKeyValue() . '"';

@@ -51,21 +51,20 @@ final class StringMatchTableSearchStrategy implements TableSearchStrategy
             $lookupColumnsList[] = $pkColumnMetadata->getColumnName();
         }
 
-        $queryBuilder = $this
+        // Build and execute lookup query
+        $statement = $this
             ->buildBaseQuery($connection, $tableMetadata, $searchTerm)
             ->select(array_map(
                 function (string $columnName) {
                     return '`' . $columnName . '`';
                 },
                 $lookupColumnsList
-            ));
-
-        $statement = $queryBuilder->execute();
+            ))
+            ->execute();
 
         // Read data one row at a time, building and yielding a RowResult. This lets us deal with large tables without
         // a ballooning memory requirement
         while ($row = $statement->fetch(\PDO::FETCH_ASSOC)) {
-
             // Build a list of columns that have matches
             $fieldMatchList = [];
             foreach ($row as $columnName => $value) {
@@ -78,12 +77,8 @@ final class StringMatchTableSearchStrategy implements TableSearchStrategy
             }
 
             // Handle presence or absence of primary key
-            yield new RowSearchResult(
-                $tableMetadata,
-                $fieldMatchList,
-                $pkColumnMetadata,
-                $pkColumnMetadata ? $row[$pkColumnMetadata->getColumnName()] : null
-            );
+            $pkValue = $pkColumnMetadata ? $row[$pkColumnMetadata->getColumnName()] : null;
+            yield new RowSearchResult($tableMetadata, $fieldMatchList, $pkColumnMetadata, $pkValue);
         }
     }
 
