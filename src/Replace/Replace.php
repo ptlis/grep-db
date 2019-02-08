@@ -138,13 +138,7 @@ final class Replace
             }
 
             // TODO: handle exception
-            try {
-                $queryBuilder->execute();
-            } catch (\Throwable $e) {
-                var_dump($rowSearchResult);
-                echo $e->getMessage().PHP_EOL;
-                die();
-            }
+            $queryBuilder->execute();
 
             if (0 === ($rowCount % $batchSize)) {
                 $connection->query('COMMIT');
