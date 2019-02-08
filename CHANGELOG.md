@@ -1,4 +1,14 @@
 
+# 0.1.1 - 2019-02-08
+
+* Remove accidentally committed debug code.
+
+# 0.1.0 - 2019-02-08
+
+* Total rethink of approach; almost everything has changed.
+* Added tests.
+
+
 # 0.0.11 - 2017-09-20
 
 * Retrieve additional metadata for columns (whether it is nullable and whether it is indexed).
