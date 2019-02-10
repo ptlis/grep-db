@@ -19,7 +19,7 @@ use ptlis\GrepDb\Search\Strategy\StringMatchTableSearchStrategy;
 final class Search
 {
     /**
-     * Performs a search across databases on a server, batching queries to the specified batch size.
+     * Performs a search across databases on a server.
      *
      * @param Connection $connection
      * @param string $searchTerm
@@ -45,7 +45,7 @@ final class Search
     }
 
     /**
-     * Performs a search across tables in a database, batching queries to the specified batch size.
+     * Performs a search across tables in a database.
      *
      * @param Connection $connection
      * @param string $databaseName
@@ -74,7 +74,7 @@ final class Search
     }
 
     /**
-     * Performs a search on the provided table, batching queries to the specified batch size.
+     * Performs a search on the provided table.
      *
      * @param Connection $connection
      * @param string $databaseName
