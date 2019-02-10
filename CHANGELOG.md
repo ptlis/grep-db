@@ -1,7 +1,13 @@
 
+# 0.1.2 - 2019-02-10
+
+* Update to latest version of ptlis/php-serialized-data-editor
+
+
 # 0.1.1 - 2019-02-08
 
 * Remove accidentally committed debug code.
+
 
 # 0.1.0 - 2019-02-08
 
