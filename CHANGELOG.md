@@ -1,4 +1,9 @@
 
+# 0.1.3 - 2019-02-10
+
+* Re-introduce GrepDb class & convenience methods.
+
+
 # 0.1.2 - 2019-02-10
 
 * Update to latest version of ptlis/php-serialized-data-editor
