@@ -60,10 +60,7 @@ final class GrepDb
         string $tableName,
         string $searchTerm
     ): \Generator {
-        $resultList = $this->search->searchTable($this->connection, $databaseName, $tableName, $searchTerm);
-        foreach ($resultList as $result) {
-            yield $result;
-        }
+        return $this->search->searchTable($this->connection, $databaseName, $tableName, $searchTerm);
     }
 
     /**
@@ -77,10 +74,7 @@ final class GrepDb
         string $databaseName,
         string $searchTerm
     ): \Generator {
-        $resultList = $this->search->searchDatabase($this->connection, $databaseName, $searchTerm);
-        foreach ($resultList as $result) {
-            yield $result;
-        }
+        return $this->search->searchDatabase($this->connection, $databaseName, $searchTerm);
     }
 
     /**
@@ -92,10 +86,7 @@ final class GrepDb
     public function searchServer(
         string $searchTerm
     ): \Generator {
-        $resultList = $this->search->searchServer($this->connection, $searchTerm);
-        foreach ($resultList as $result) {
-            yield $result;
-        }
+        return $this->search->searchServer($this->connection, $searchTerm);
     }
 
     /**
@@ -113,16 +104,13 @@ final class GrepDb
         string $searchTerm,
         string $replaceTerm
     ): \Generator {
-        $resultList = $this->replace->replaceTable(
+        return $this->replace->replaceTable(
             $this->connection,
             $databaseName,
             $tableName,
             $searchTerm,
             $replaceTerm
         );
-        foreach ($resultList as $result) {
-            yield $result;
-        }
     }
 
     /**
@@ -138,9 +126,6 @@ final class GrepDb
         string $searchTerm,
         string $replaceTerm
     ): \Generator {
-        $resultList = $this->replace->replaceDatabase($this->connection, $databaseName, $searchTerm, $replaceTerm);
-        foreach ($resultList as $result) {
-            yield $result;
-        }
+        return $this->replace->replaceDatabase($this->connection, $databaseName, $searchTerm, $replaceTerm);
     }
 }
