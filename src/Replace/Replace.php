@@ -10,7 +10,7 @@ namespace ptlis\GrepDb\Replace;
 
 use Doctrine\DBAL\Connection;
 use ptlis\GrepDb\Metadata\MySQL\ColumnMetadata;
-use ptlis\GrepDb\Metadata\MySQL\MetadataFactory;
+use ptlis\GrepDb\Metadata\MySQL\DataSource\ConnectionMetadataFactory;
 use ptlis\GrepDb\Replace\Result\FieldReplaceResult;
 use ptlis\GrepDb\Replace\Result\RowReplaceResult;
 use ptlis\GrepDb\Replace\Strategy\FieldReplaceStrategy;
@@ -55,7 +55,7 @@ final class Replace
         string $replaceTerm,
         int $batchSize = 100
     ): \Generator {
-        $databaseMetadata = (new MetadataFactory())->getDatabaseMetadata($connection, $databaseName);
+        $databaseMetadata = (new ConnectionMetadataFactory($connection, $databaseName))->getDatabaseMetadata();
 
         foreach ($databaseMetadata->getAllTableMetadata() as $tableMetadata) {
             $rowResultList = $this->replaceTable(

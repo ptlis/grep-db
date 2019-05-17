@@ -10,6 +10,8 @@ namespace ptlis\GrepDb\Metadata\MySQL;
 
 /**
  * DTO storing table metadata.
+ *
+ * @todo Add __toString method that outputs create table statement
  */
 final class TableMetadata
 {

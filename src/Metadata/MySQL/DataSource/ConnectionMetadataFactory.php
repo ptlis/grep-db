@@ -6,46 +6,39 @@
  * @license     http://opensource.org/licenses/MIT MIT
  */
 
-namespace ptlis\GrepDb\Metadata\MySQL;
+namespace ptlis\GrepDb\Metadata\MySQL\DataSource;
 
 use Doctrine\DBAL\Connection;
+use ptlis\GrepDb\Metadata\MySQL\ColumnMetadata;
+use ptlis\GrepDb\Metadata\MySQL\DatabaseMetadata;
+use ptlis\GrepDb\Metadata\MySQL\TableMetadata;
 
 /**
- * Factory that builds server, database & table metadata.
+ * Factory that builds database & table metadata from a doctrine DBAL connection.
  */
-final class MetadataFactory
+final class ConnectionMetadataFactory implements MetadataFactory
 {
-    /**
-     * Query the server and build server metadata DTO.
-     */
-    public function getServerMetadata(
-        Connection $connection
+    /** @var Connection */
+    private $connection;
+
+    /** @var string */
+    private $databaseName;
+
+    public function __construct(
+        Connection $connection,
+        string $databaseName
     ) {
-        // Attempt to list databases, ignoring internal databases
-        try {
-            $statement = $connection->query('SHOW DATABASES WHERE `Database` NOT IN ("information_schema", "performance_schema", "sys", "mysql");');
-        } catch (\Throwable $e) {
-            throw new \RuntimeException('Failed to list databases: ' . $e->getMessage());
-        }
-
-        $databaseMetadataList = [];
-        /** @var string $databaseName */
-        while ($databaseName = $statement->fetchColumn(0)) {
-            $databaseMetadataList[] = $this->getDatabaseMetadata($connection, $databaseName);
-        }
-
-        return new ServerMetadata($connection->getHost(), $databaseMetadataList);
+        $this->connection = $connection;
+        $this->databaseName = $databaseName;
     }
 
     /**
-     * Query the server and build database metadata DTO.
+     * @inheritdoc
      */
-    public function getDatabaseMetadata(
-        Connection $connection,
-        string $databaseName
-    ): DatabaseMetadata {
+    public function getDatabaseMetadata(): DatabaseMetadata
+    {
         // Get a list of table names
-        $tableNameStatement = $connection
+        $tableNameStatement = $this->connection
             ->createQueryBuilder()
             ->select([
                 'tables.TABLE_NAME AS name'
@@ -53,28 +46,27 @@ final class MetadataFactory
             ->from('information_schema.TABLES', 'tables')
             ->where('TABLE_SCHEMA = :schema')
             ->andWhere('TABLE_TYPE = "BASE TABLE"')
-            ->setParameter('schema', $databaseName)
+            ->setParameter('schema', $this->databaseName)
             ->execute();
 
         // Build table metadata
         $tableMetadataList = [];
+        /** @var string $tableName */
         while ($tableName = $tableNameStatement->fetchColumn(0)) {
-            $tableMetadataList[] = $this->getTableMetadata($connection, $databaseName, $tableName);
+            $tableMetadataList[] = $this->getTableMetadata($tableName);
         }
 
-        return new DatabaseMetadata($databaseName, $tableMetadataList);
+        return new DatabaseMetadata($this->databaseName, $tableMetadataList);
     }
 
     /**
-     * Query the server and build table metadata DTO.
+     * @inheritdoc
      */
     public function getTableMetadata(
-        Connection $connection,
-        string $databaseName,
         string $tableName
     ): TableMetadata {
         // Get top-level table information
-        $tableStatement = $connection
+        $tableStatement = $this->connection
             ->createQueryBuilder()
             ->select([
                 'tables.TABLE_NAME AS name',
@@ -97,7 +89,7 @@ final class MetadataFactory
         $tableRow = $tableStatement->fetch(\PDO::FETCH_ASSOC);
 
         // Get column information
-        $columnsStatement = $connection
+        $columnsStatement = $this->connection
             ->createQueryBuilder()
             ->select([
                 'columns.COLUMN_NAME AS name',
@@ -117,7 +109,7 @@ final class MetadataFactory
             ->where('TABLE_SCHEMA = :schema')
             ->andWhere('TABLE_NAME = :table_name')
             ->setParameters([
-                'schema' => $databaseName,
+                'schema' => $this->databaseName,
                 'table_name' => $tableName
             ])
             ->execute();
@@ -126,7 +118,7 @@ final class MetadataFactory
         $columnMetadataList = [];
         foreach ($columnsStatement->fetchAll(\PDO::FETCH_ASSOC) as $columnsRow) {
             $columnMetadataList[] = new ColumnMetadata(
-                $databaseName,
+                $this->databaseName,
                 $tableName,
                 $columnsRow['name'],
                 $columnsRow['type'],
@@ -138,7 +130,7 @@ final class MetadataFactory
         }
 
         return new TableMetadata(
-            $databaseName,
+            $this->databaseName,
             $tableName,
             $tableRow['engine'],
             $tableRow['collation'],

@@ -78,18 +78,6 @@ final class GrepDb
     }
 
     /**
-     * Performs search on all available databases.
-     *
-     * @param string $searchTerm
-     * @return \Generator|RowSearchResult[]
-     */
-    public function searchServer(
-        string $searchTerm
-    ): \Generator {
-        return $this->search->searchServer($this->connection, $searchTerm);
-    }
-
-    /**
      * Performs search and replacement on the specified database and table.
      *
      * @param string $databaseName

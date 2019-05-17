@@ -10,6 +10,8 @@ namespace ptlis\GrepDb\Metadata\MySQL;
 
 /**
  * DTO storing column metadata.
+ *
+ * @todo Track unique keys seperately from indices
  */
 final class ColumnMetadata
 {

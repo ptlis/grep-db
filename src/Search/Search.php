@@ -9,7 +9,7 @@
 namespace ptlis\GrepDb\Search;
 
 use Doctrine\DBAL\Connection;
-use ptlis\GrepDb\Metadata\MySQL\MetadataFactory;
+use ptlis\GrepDb\Metadata\MySQL\DataSource\ConnectionMetadataFactory;
 use ptlis\GrepDb\Search\Result\RowSearchResult;
 use ptlis\GrepDb\Search\Strategy\StringMatchTableSearchStrategy;
 
@@ -18,32 +18,6 @@ use ptlis\GrepDb\Search\Strategy\StringMatchTableSearchStrategy;
  */
 final class Search
 {
-    /**
-     * Performs a search across databases on a server.
-     *
-     * @param Connection $connection
-     * @param string $searchTerm
-     * @return \Generator|RowSearchResult[]
-     */
-    public function searchServer(
-        Connection $connection,
-        string $searchTerm
-    ): \Generator {
-        $serverMetadata = (new MetadataFactory())->getServerMetadata($connection);
-
-        foreach ($serverMetadata->getAllDatabaseMetadata() as $databaseMetadata) {
-            $resultList = $this->searchDatabase(
-                $connection,
-                $databaseMetadata->getDatabaseName(),
-                $searchTerm
-            );
-
-            foreach ($resultList as $result) {
-                yield $result;
-            }
-        }
-    }
-
     /**
      * Performs a search across tables in a database.
      *
@@ -57,7 +31,7 @@ final class Search
         string $databaseName,
         string $searchTerm
     ): \Generator {
-        $databaseMetadata = (new MetadataFactory())->getDatabaseMetadata($connection, $databaseName);
+        $databaseMetadata = (new ConnectionMetadataFactory($connection, $databaseName))->getDatabaseMetadata();
 
         foreach ($databaseMetadata->getAllTableMetadata() as $tableMetadata) {
             $resultList = $this->searchTable(
@@ -88,7 +62,7 @@ final class Search
         string $tableName,
         string $searchTerm
     ): \Generator {
-        $tableMetadata = (new MetadataFactory())->getTableMetadata($connection, $databaseName, $tableName);
+        $tableMetadata = (new ConnectionMetadataFactory($connection, $databaseName))->getTableMetadata($tableName);
 
         if (!$tableMetadata->hasStringTypeColumn()) {
             return;
