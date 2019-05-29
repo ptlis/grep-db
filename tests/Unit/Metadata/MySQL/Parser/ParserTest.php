@@ -153,4 +153,30 @@ final class ParserTest extends TestCase
         $this->validateColumn($tableTwoColumnMetadataList, $dbName, 'test_table_compound_pk', 'column_2_pk', 'int(11)', null, true, false, true);
         $this->validateColumn($tableTwoColumnMetadataList, $dbName, 'test_table_compound_pk', 'column_data', 'varchar(512)', 512, false, true, false);
     }
+
+    public function testParseSingleTableWithSetStatements(): void
+    {
+        $tokenizer = new Tokenizer();
+        $parser = new Parser($tokenizer);
+
+        /** @var TableMetadata[] $tableMetadataList */
+        $tableMetadataList = [];
+        foreach ($parser->parseAllTableMetadata('./tests/Data/single_table_includes_set_statements.sql') as $tableMetadata) {
+            $tableMetadataList[] = $tableMetadata;
+        };
+
+        $this->assertEquals(1, count($tableMetadataList));
+
+        $dbName = './tests/Data/single_table_includes_set_statements.sql';
+        $tableName = 'table_with_collation';
+
+        // Verify table metadata
+        $this->validateTable($tableMetadataList[0], $dbName, $tableName, 'InnoDB', 'utf8mb4_unicode_520_ci', 'utf8mb4', -1, 4);
+        $tableOneColumnMetadataList = $tableMetadataList[0]->getAllColumnMetadata();
+        $this->validateColumn($tableOneColumnMetadataList, $dbName, $tableName, 'item_id', 'bigint(20)', null, true, false, true);
+        $this->validateColumn($tableOneColumnMetadataList, $dbName, $tableName, 'comment_id', 'bigint(20)', null, false, false, true);
+        $this->validateColumn($tableOneColumnMetadataList, $dbName, $tableName, 'collate_varchar', 'varchar(255)', 255, false, true, true);
+        $this->validateColumn($tableOneColumnMetadataList, $dbName, $tableName, 'collate_text', 'longtext', null, false, true, false);
+
+    }
 }

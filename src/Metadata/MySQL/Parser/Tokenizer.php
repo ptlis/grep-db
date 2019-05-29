@@ -17,6 +17,7 @@ final class Tokenizer
 
     private const KEYWORDS = [
         'AUTO_INCREMENT',
+        'COLLATE',
         'CREATE',
         'DEFAULT',
         'DROP',
@@ -33,6 +34,7 @@ final class Tokenizer
         'TABLES',
         'UNIQUE',
         'UNLOCK',
+        'UNSIGNED',
         'VALUES',
         'WRITE'
     ];
@@ -68,6 +70,12 @@ final class Tokenizer
         'ENUM',
         'SET',
         'DOUBLE'
+    ];
+
+    private const VARIABLE_TYPES = [
+        'GLOBAL',
+        'LOCAL',
+        'SESSION'
     ];
 
     /**
@@ -127,8 +135,8 @@ final class Tokenizer
      */
     private function parseStatement(string $accumulator, $fileHandle, $delimiter): array
     {
-        /** @var Token[] $tokens */
-        $tokens = [];
+        /** @var Token[] $tokenList */
+        $tokenList = [];
         $statementComplete = false;
 
         while (($char = fgetc($fileHandle)) !== false) {
@@ -143,8 +151,8 @@ final class Tokenizer
                     $accumulator .= $char;
                     $statementString = substr($accumulator, 0, strlen($accumulator) - strlen($delimiter));
                     if (strlen($statementString)) {
-                        $tokens = array_merge(
-                            $tokens,
+                        $tokenList = array_merge(
+                            $tokenList,
                             $this->parseTypesAndKeywords($statementString)
                         );
                     }
@@ -154,16 +162,16 @@ final class Tokenizer
 
                 // Numerical value (e.g. in an INSERT statement)
                 case 0 === strlen($accumulator) && is_numeric($char):
-                    $tokens = array_merge($tokens, $this->readNumber($fileHandle, $char));
+                    $tokenList = array_merge($tokenList, $this->readNumber($fileHandle, $char));
                     break;
 
                 // String value (e.g. in an INSERT statement)
                 case 0 === strlen($accumulator) && in_array($char, ['"', '\'']):
-                    $tokens[] = $this->readString($fileHandle, $char);
+                    $tokenList[] = $this->readQuotedString($fileHandle, $char);
                     break;
 
                 // NULL value (e.g. in an INSERT statement)
-                case count($tokens) > 0 && 'INSERT' === $tokens[0]->getValue() && 0 === strlen($accumulator) && 'N' === $char:
+                case count($tokenList) > 0 && 'INSERT' === $tokenList[0]->getValue() && 0 === strlen($accumulator) && 'N' === $char:
                     $accumulator = $char;
                     $accumulator .= fgetc($fileHandle);
                     $accumulator .= fgetc($fileHandle);
@@ -172,35 +180,45 @@ final class Tokenizer
                         throw new \RuntimeException('Something has gone wrong, please submit a bug report to https://github.com/ptlis/grep-db/issues with an example schema');
                     }
                     $accumulator = '';
-                    $tokens[] = new Token(Token::VALUE_NULL, 'NULL');
+                    $tokenList[] = new Token(Token::VALUE_NULL, 'NULL');
                     break;
 
                 // mySQL quoted string
                 case '`' === $char:
-                    $tokens[] = $this->readMysqlQuotedString($fileHandle);
+                    $tokenList[] = $this->readMysqlQuotedString($fileHandle);
                     $accumulator = '';
                     break;
 
                 // Trailing comma
                 case 0 === strlen($accumulator) && ',' === $char;
                 case ',' === $accumulator && ' ' === $char:
-                    $tokens[] = new Token(Token::COMMA_SEPARATOR, ',');
+                    $tokenList[] = new Token(Token::COMMA_SEPARATOR, ',');
                     break;
 
                 // End of mySQL keyword or data type
                 case strlen($accumulator) > 1 && ' ' === $char:
-                    $tokens = array_merge($tokens, $this->parseTypesAndKeywords($accumulator));
+                    if ('SET' === $accumulator) {
+                        $tokenList = array_merge($tokenList, $this->parseVariableAssignment($fileHandle));
+                        $statementComplete = true;
+                    } else {
+                        $tokenList = array_merge($tokenList, $this->parseTypesAndKeywords($accumulator));
+
+                        // Collate statement is always followed by a collation
+                        if ('COLLATE' === $tokenList[count($tokenList) - 1]->getValue()) {
+                            $tokenList = array_merge($tokenList, $this->readCollation($fileHandle));
+                        }
+                    }
                     $accumulator = '';
                     break;
 
                 // Open parenthesis
                 case 0 === strlen($accumulator) && '(' === $char:
-                    $tokens[] = new Token(Token::PARENTHESIS_OPEN, $char);
+                    $tokenList[] = new Token(Token::PARENTHESIS_OPEN, $char);
                     break;
 
                 // Close parenthesis
                 case 0 === strlen($accumulator) && ')' === $char:
-                    $tokens[] = new Token(Token::PARENTHESIS_CLOSE, $char);
+                    $tokenList[] = new Token(Token::PARENTHESIS_CLOSE, $char);
                     break;
 
                 // Ignore spaces, otherwise accumulate
@@ -214,13 +232,39 @@ final class Tokenizer
             }
         }
 
-        return $tokens;
+        return $tokenList;
+    }
+
+    /**
+     * Read the collation of a column.
+     *
+     * @return Token[]
+     */
+    private function readCollation($fileHandle): array
+    {
+        $tokenList = [];
+        $accumulator = '';
+        while (($char = fgetc($fileHandle)) !== false) {
+            if (' ' === $char) {
+                $tokenList[] = new Token(Token::MYSQL_COLLATION, $accumulator);
+                break;
+
+            } else if (',' === $char) {
+                $tokenList[] = new Token(Token::MYSQL_COLLATION, $accumulator);
+                $tokenList[] = new Token(Token::COMMA_SEPARATOR, ',');
+                break;
+
+            } else {
+                $accumulator .= $char;
+            }
+        }
+        return $tokenList;
     }
 
     /**
      * Reads a quoted string until the matching end quote is met.
      */
-    private function readString($fileHandle, string $quoteType): Token
+    private function readQuotedString($fileHandle, string $quoteType): Token
     {
         $accumulator = '';
         while (($char = fgetc($fileHandle)) !== false) {
@@ -249,24 +293,24 @@ final class Tokenizer
      */
     private function readNumber($fileHandle, string $accumulator): array
     {
-        $tokens = [];
+        $tokenList = [];
 
         while (($char = fgetc($fileHandle)) !== false) {
             if (',' === $char) {
-                $tokens[] = new Token(Token::VALUE_NUMBER, $accumulator);
-                $tokens[] = new Token(Token::COMMA_SEPARATOR, ',');
+                $tokenList[] = new Token(Token::VALUE_NUMBER, $accumulator);
+                $tokenList[] = new Token(Token::COMMA_SEPARATOR, ',');
                 break;
             }
             if (')' === $char) {
-                $tokens[] = new Token(Token::VALUE_NUMBER, $accumulator);
-                $tokens[] = new Token(Token::PARENTHESIS_CLOSE, ')');
+                $tokenList[] = new Token(Token::VALUE_NUMBER, $accumulator);
+                $tokenList[] = new Token(Token::PARENTHESIS_CLOSE, ')');
                 break;
             }
 
             $accumulator .= $char;
         }
 
-        return $tokens;
+        return $tokenList;
     }
 
     /**
@@ -293,12 +337,12 @@ final class Tokenizer
      */
     private function parseTypesAndKeywords(string $accumulator): array
     {
-        $tokens = [];
+        $tokenList = [];
 
         // Handle preceding comma
         if (',' === substr($accumulator, 0, 1)) {
             $accumulator = substr($accumulator, 1);
-            $tokens[] = new Token(Token::COMMA_SEPARATOR, ',');
+            $tokenList[] = new Token(Token::COMMA_SEPARATOR, ',');
         }
 
         // Find out if this contains a trailing comma
@@ -309,21 +353,114 @@ final class Tokenizer
         }
 
         if ($this->isMySqlDataType($accumulator)) {
-            $tokens[] = new Token(Token::DATA_TYPE, $accumulator);
+            $tokenList[] = new Token(Token::DATA_TYPE, $accumulator);
 
         } else if ($this->isKeyValue($accumulator)) {
-            $tokens[] = new Token(Token::KEY_VALUE, $accumulator);
+            $tokenList[] = new Token(Token::KEY_VALUE, $accumulator);
 
         } else {
-            $tokens[] = $this->getKeywordToken($accumulator);
+            $tokenList[] = $this->getKeywordToken($accumulator);
         }
 
         // Trailing comma
         if ($trailingComma) {
-            $tokens[] = new Token(Token::COMMA_SEPARATOR, ',');
+            $tokenList[] = new Token(Token::COMMA_SEPARATOR, ',');
         }
 
-        return $tokens;
+        return $tokenList;
+    }
+
+    /**
+     * Parse a variable assignment statement.
+     *
+     * Note: This won't parse arbitrary SET statements, but will work with those present in mySQL dump files.
+     *
+     * @return Token[]
+     */
+    private function parseVariableAssignment($fileHandle): array
+    {
+        $tokenList = [
+            new Token(Token::KEYWORD, 'SET')
+        ];
+
+        $accumulator = '';
+        $statementComplete = false;
+        while (($char = fgetc($fileHandle)) !== false) {
+            switch ($char) {
+                case ' ':
+                    if (strlen($accumulator)) {
+                        $tokenList[] = $this->parseVariableComponent($accumulator);
+                        $accumulator = '';
+                    }
+                    break;
+
+                case ',':
+                    if (strlen($accumulator)) {
+                        $tokenList[] = $this->parseVariableComponent($accumulator);
+                        $accumulator = '';
+                    }
+                    $tokenList[] = new Token(Token::COMMA_SEPARATOR, ',');
+                    break;
+
+                case '=':
+                    if (strlen($accumulator)) {
+                        $tokenList[] = $this->parseVariableComponent($accumulator);
+                        $accumulator = '';
+                    }
+                    $tokenList[] = new Token(Token::MYSQL_VARIABLE_ASSIGNMENT, '=');
+                    break;
+
+                case ';':
+                    if (strlen($accumulator)) {
+                        $tokenList[] = $this->parseVariableComponent($accumulator);
+                        $accumulator = '';
+                    }
+                    $statementComplete = true;
+                    break;
+
+                default:
+                    $accumulator .= $char;
+                    break;
+            }
+
+            if ($statementComplete) {
+                break;
+            }
+        }
+
+        return $tokenList;
+    }
+
+    private function parseVariableComponent(string $component): Token
+    {
+        $token = null;
+
+        // One of GLOBAL, SESSION or LOCAL
+        if (in_array(strtoupper($component), self::VARIABLE_TYPES)) {
+            $token = new Token(Token::MYSQL_VARIABLE_TYPE, strtoupper($component));
+
+        // Default value
+        } else if ('DEFAULT' === $component) {
+            $token = new Token(Token::KEYWORD, 'DEFAULT');
+
+        // Numeric value
+        } else if (is_numeric($component)) {
+            $token = new Token(Token::VALUE_NUMBER, $component);
+
+        // String value (single quotes)
+        } else if ("'" === $component[0] && "'" === $component[strlen($component) - 1]) {
+            $token = new Token(Token::VALUE_STRING, trim($component, "'"));
+
+        // String value (double quotes)
+        } else if ('"' === $component[0] && '"' === $component[strlen($component) - 1]) {
+            $token = new Token(Token::VALUE_STRING, trim($component, '"'));
+
+        // Variable identifier
+        } else {
+            $token = new Token(Token::MYSQL_VARIABLE, $component);
+        }
+
+        return $token;
     }
 
     /**

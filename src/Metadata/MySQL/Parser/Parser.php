@@ -68,7 +68,7 @@ final class Parser
                     $charset = $parts[1];
                 }
 
-                if ('COLLATION' === strtoupper($parts[0])) {
+                if ('COLLATION' === strtoupper($parts[0]) || 'COLLATE' === strtoupper($parts[0])) {
                     $collation = $parts[1];
                 }
             }
@@ -245,9 +245,16 @@ final class Parser
     private function isNotNull(array $columnTokenList): bool
     {
         return (
-            count($columnTokenList) > 3
-            && $columnTokenList[2]->matches(Token::KEYWORD, 'NOT')
-            && $columnTokenList[3]->matches(Token::KEYWORD, 'NULL')
+            (
+                count($columnTokenList) > 3
+                && $columnTokenList[2]->matches(Token::KEYWORD, 'NOT')
+                && $columnTokenList[3]->matches(Token::KEYWORD, 'NULL')
+            ) || (
+                count($columnTokenList) > 4
+                && $columnTokenList[2]->matches(Token::KEYWORD, 'UNSIGNED')
+                && $columnTokenList[3]->matches(Token::KEYWORD, 'NOT')
+                && $columnTokenList[4]->matches(Token::KEYWORD, 'NULL')
+            )
         );
     }
 

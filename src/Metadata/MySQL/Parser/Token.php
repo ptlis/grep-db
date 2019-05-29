@@ -23,6 +23,10 @@ final class Token
     public const VALUE_NUMBER = 'value-number';
     public const VALUE_STRING = 'value-string';
     public const VALUE_NULL = 'value-null';
+    public const MYSQL_VARIABLE = 'variable';
+    public const MYSQL_VARIABLE_TYPE = 'variable-type';
+    public const MYSQL_VARIABLE_ASSIGNMENT = 'variable-assignment';
+    public const MYSQL_COLLATION = 'collation';
 
     /** @var string The token type */
     private $type;
