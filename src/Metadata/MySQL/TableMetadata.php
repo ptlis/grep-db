@@ -59,8 +59,8 @@ final class TableMetadata
         $this->tableName = $tableName;
         $this->engine = $engine;
         $this->collation = $collation;
-        $this->rowCount = $rowCount;
         $this->charset = $charset;
+        $this->rowCount = $rowCount;
 
         foreach ($columnMetadataList as $columnMetadata) {
             $this->columnMetadataList[$columnMetadata->getColumnName()] = $columnMetadata;

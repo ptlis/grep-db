@@ -77,7 +77,7 @@ final class Tokenizer
      *
      * @return Token[][]
      */
-    public function tokenize(string $filePath): array
+    public function tokenize(string $filePath): \Generator
     {
         $fileHandle = fopen($filePath, 'r');
         if (false === $fileHandle) {
@@ -86,8 +86,6 @@ final class Tokenizer
 
         $delimiter = self::DEFAULT_DELIMITER;
         $stringAccumulator = '';
-
-        $statementsTokens = [];
 
         // Read file a character at a time
         while (($char = fgetc($fileHandle)) !== false) {
@@ -115,14 +113,11 @@ final class Tokenizer
 
                 // We're not in a comment but we have data; we're in a statement
                 case strlen($stringAccumulator) > 2:
-                    $statementsTokens[] = $this->parseStatement($stringAccumulator, $fileHandle, $delimiter);
+                    yield $this->parseStatement($stringAccumulator, $fileHandle, $delimiter);
                     $stringAccumulator = '';
                     break;
             }
-
         }
-
-        return $statementsTokens;
     }
 
     /**

@@ -51,4 +51,15 @@ final class Token
     {
         return $this->value;
     }
+
+    /**
+     * Returns true if the token matches the provided data.
+     */
+    public function matches(string $type, string $value): bool
+    {
+        return (
+            $this->type === $type
+            && $this->value === $value
+        );
+    }
 }

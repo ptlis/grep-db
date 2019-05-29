@@ -88,6 +88,11 @@ final class ConnectionMetadataFactory implements MetadataFactory
 
         $tableRow = $tableStatement->fetch(\PDO::FETCH_ASSOC);
 
+        // No row found, table doesn't exist
+        if (!$tableRow) {
+            throw new \RuntimeException('Could not find table "' . $tableName . '"');
+        }
+
         // Get column information
         $columnsStatement = $this->connection
             ->createQueryBuilder()
