@@ -27,19 +27,17 @@ final class Parser
      */
     public function parseAllTableMetadata(string $filePath): \Generator
     {
-        /** @var Token[] $statementTokenList */
-        foreach ($this->tokenizer->tokenize($filePath) as $statementTokenList) {
-            if ($this->isCreateTableStatement($statementTokenList)) {
-                yield $this->parseSingleTableMetadata($filePath, $statementTokenList);
+        /** @var TokenBundle $tokenBundle */
+        foreach ($this->tokenizer->tokenize($filePath) as $tokenBundle) {
+            if ($this->isCreateTableStatement($tokenBundle)) {
+                yield $this->parseSingleTableMetadata($filePath, $tokenBundle);
             }
         }
     }
 
-    /**
-     * @param Token[] $tokenList
-     */
-    private function parseSingleTableMetadata(string $filePath, array $tokenList): TableMetadata
+    private function parseSingleTableMetadata(string $filePath, TokenBundle $tokenBundle): TableMetadata
     {
+        $tokenList = $tokenBundle->getTokens();
         $tableName = $tokenList[2]->getValue();
 
         // Figure out where close offset is
@@ -301,11 +299,10 @@ final class Parser
 
     /**
      * Returns true if the token list is a create table statement.
-     *
-     * @param Token[] $tokenList
      */
-    private function isCreateTableStatement(array $tokenList): bool
+    private function isCreateTableStatement(TokenBundle $tokenBundle): bool
     {
+        $tokenList = $tokenBundle->getTokens();
         return (
             count($tokenList) > 1
             && $tokenList[0]->matches(Token::KEYWORD, 'CREATE')
