@@ -35,6 +35,14 @@ final class Parser
         }
     }
 
+    public function parse(string $filePath)
+    {
+        foreach ($this->tokenizer->tokenize($filePath) as $tokenBundle) {
+
+                yield $tokenBundle;
+        }
+    }
+
     private function parseSingleTableMetadata(string $filePath, TokenBundle $tokenBundle): TableMetadata
     {
         $tokenList = $tokenBundle->getTokens();

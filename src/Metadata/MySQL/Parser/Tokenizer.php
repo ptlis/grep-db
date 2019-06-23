@@ -10,8 +10,6 @@ namespace ptlis\GrepDb\Metadata\MySQL\Parser;
 
 /**
  * Tokenizer for mySQL dump files.
- *
- * @todo Handle different newlines (e.g. windows' \r\n, unix's \n)
  */
 final class Tokenizer
 {
@@ -89,17 +87,14 @@ final class Tokenizer
      */
     public function tokenize(string $filePath): \Generator
     {
-        $fileHandle = fopen($filePath, 'r');
-        if (false === $fileHandle) {
-            throw new \RuntimeException('Could not open SQL file "' . $filePath . '"');
-        }
+        $fileReader = new FileReader($filePath);
 
         $delimiter = self::DEFAULT_DELIMITER;
         $stringAccumulator = '';
         $rawData = '';
 
         // Read file a character at a time
-        while (($char = fgetc($fileHandle)) !== false) {
+        while (($char = $fileReader->readChar()) !== false) {
             $rawData .= $char;
 
             // Ignore prefixed line breaks
@@ -112,7 +107,7 @@ final class Tokenizer
                 // TODO: Handle inline in statement
                 case '--' === $stringAccumulator:
                 case '#' === $stringAccumulator:
-                    $this->skipToEndOfLine($rawData, $fileHandle);
+                    $this->skipToEndOfLine($rawData, $fileReader);
                     yield new TokenBundle($rawData);
                     $stringAccumulator = '';
                     $rawData = '';
@@ -121,7 +116,7 @@ final class Tokenizer
                 // Multi-line comments that begin at start of line
                 // TODO: Handle inline in statement
                 case '/*' === $stringAccumulator:
-                    $this->skipToAfterClosingComment($rawData, $fileHandle, $delimiter);
+                    $this->skipToAfterClosingComment($rawData, $fileReader, $delimiter);
                     yield new TokenBundle($rawData);
                     $stringAccumulator = '';
                     $rawData = '';
@@ -129,7 +124,10 @@ final class Tokenizer
 
                 // We're not in a comment but we have data; we're in a statement
                 case strlen($stringAccumulator) > 2:
-                    yield $this->parseStatement($rawData, $stringAccumulator, $fileHandle, $delimiter);
+if ($stringAccumulator === 'INS') {
+    var_dump($stringAccumulator);die();
+}
+                    yield $this->parseStatement($rawData, $stringAccumulator, $fileReader, $delimiter);
                     $stringAccumulator = '';
                     $rawData = '';
                     break;
@@ -140,13 +138,13 @@ final class Tokenizer
     /**
      * Tokenizes a mySQL statement into an array of tokens.
      */
-    private function parseStatement(string $rawData, string $accumulator, $fileHandle, $delimiter): TokenBundle
+    private function parseStatement(string $rawData, string $accumulator, FileReader $fileReader, $delimiter): TokenBundle
     {
         /** @var Token[] $tokenList */
         $tokenList = [];
         $statementComplete = false;
 
-        while (($char = fgetc($fileHandle)) !== false) {
+        while (($char = $fileReader->readChar()) !== false) {
             $rawData .= $char;
 
             switch (true) {
@@ -171,20 +169,20 @@ final class Tokenizer
 
                 // Numerical value (e.g. in an INSERT statement)
                 case 0 === strlen($accumulator) && is_numeric($char):
-                    $tokenList = array_merge($tokenList, $this->readNumber($rawData, $fileHandle, $char));
+                    $tokenList = array_merge($tokenList, $this->readNumber($rawData, $fileReader, $char));
                     break;
 
                 // String value (e.g. in an INSERT statement)
                 case 0 === strlen($accumulator) && in_array($char, ['"', '\'']):
-                    $tokenList[] = $this->readQuotedString($rawData, $fileHandle, $char);
+                    $tokenList[] = $this->readQuotedString($rawData, $fileReader, $char);
                     break;
 
                 // NULL value (e.g. in an INSERT statement)
                 case count($tokenList) > 0 && 'INSERT' === $tokenList[0]->getValue() && 0 === strlen($accumulator) && 'N' === $char:
                     $accumulator = $char;
-                    $accumulator .= fgetc($fileHandle);
-                    $accumulator .= fgetc($fileHandle);
-                    $accumulator .= fgetc($fileHandle);
+                    $accumulator .= $fileReader->readChar();
+                    $accumulator .= $fileReader->readChar();
+                    $accumulator .= $fileReader->readChar();
                     if ('NULL' !== $accumulator) {
                         throw new \RuntimeException('Something has gone wrong, please submit a bug report to https://github.com/ptlis/grep-db/issues with an example schema');
                     }
@@ -195,7 +193,7 @@ final class Tokenizer
 
                 // mySQL quoted string
                 case '`' === $char:
-                    $tokenList[] = $this->readMysqlQuotedString($rawData, $fileHandle);
+                    $tokenList[] = $this->readMysqlQuotedString($rawData, $fileReader);
                     $accumulator = '';
                     break;
 
@@ -208,14 +206,14 @@ final class Tokenizer
                 // End of mySQL keyword or data type
                 case strlen($accumulator) > 1 && ' ' === $char:
                     if ('SET' === $accumulator) {
-                        $tokenList = array_merge($tokenList, $this->parseVariableAssignment($rawData, $fileHandle));
+                        $tokenList = array_merge($tokenList, $this->parseVariableAssignment($rawData, $fileReader));
                         $statementComplete = true;
                     } else {
                         $tokenList = array_merge($tokenList, $this->parseTypesAndKeywords($accumulator));
 
                         // Collate statement is always followed by a collation
                         if ('COLLATE' === $tokenList[count($tokenList) - 1]->getValue()) {
-                            $tokenList = array_merge($tokenList, $this->readCollation($rawData, $fileHandle));
+                            $tokenList = array_merge($tokenList, $this->readCollation($rawData, $fileReader));
                         }
                     }
                     $accumulator = '';
@@ -250,11 +248,11 @@ final class Tokenizer
      *
      * @return Token[]
      */
-    private function readCollation(string &$rawData, $fileHandle): array
+    private function readCollation(string &$rawData, FileReader $fileReader): array
     {
         $tokenList = [];
         $accumulator = '';
-        while (($char = fgetc($fileHandle)) !== false) {
+        while (($char = $fileReader->readChar()) !== false) {
             $rawData .= $char;
             if (' ' === $char) {
                 $tokenList[] = new Token(Token::MYSQL_COLLATION, $accumulator);
@@ -275,10 +273,10 @@ final class Tokenizer
     /**
      * Reads a quoted string until the matching end quote is met.
      */
-    private function readQuotedString(string &$rawData, $fileHandle, string $quoteType): Token
+    private function readQuotedString(string &$rawData, FileReader $fileReader, string $quoteType): Token
     {
         $accumulator = '';
-        while (($char = fgetc($fileHandle)) !== false) {
+        while (($char = $fileReader->readChar()) !== false) {
             $rawData .= $char;
 
             // Read until closing quote
@@ -303,11 +301,11 @@ final class Tokenizer
      *
      * @return Token[]
      */
-    private function readNumber(string &$rawData, $fileHandle, string $accumulator): array
+    private function readNumber(string &$rawData, FileReader $fileReader, string $accumulator): array
     {
         $tokenList = [];
 
-        while (($char = fgetc($fileHandle)) !== false) {
+        while (($char = $fileReader->readChar()) !== false) {
             $rawData .= $char;
             if (',' === $char) {
                 $tokenList[] = new Token(Token::VALUE_NUMBER, $accumulator);
@@ -329,10 +327,10 @@ final class Tokenizer
     /**
      * Read a mysql-quoted string (i.e. table or column name wrapped in backticks)
      */
-    private function readMysqlQuotedString(string &$rawData, $fileHandle): Token
+    private function readMysqlQuotedString(string &$rawData, FileReader $fileReader): Token
     {
         $string = '';
-        while (($char = fgetc($fileHandle)) !== false) {
+        while (($char = $fileReader->readChar()) !== false) {
             $rawData .= $char;
             if ('`' === $char) {
                 break;
@@ -391,7 +389,7 @@ final class Tokenizer
      *
      * @return Token[]
      */
-    private function parseVariableAssignment(string &$rawData, $fileHandle): array
+    private function parseVariableAssignment(string &$rawData, FileReader $fileReader): array
     {
         $tokenList = [
             new Token(Token::KEYWORD, 'SET')
@@ -399,7 +397,7 @@ final class Tokenizer
 
         $accumulator = '';
         $statementComplete = false;
-        while (($char = fgetc($fileHandle)) !== false) {
+        while (($char = $fileReader->readChar()) !== false) {
             $rawData .= $char;
             switch ($char) {
                 case ' ':
@@ -513,9 +511,9 @@ final class Tokenizer
     /**
      * Move the file pointer to the start of the next line. Used to process single-line comments.
      */
-    private function skipToEndOfLine(string &$rawData, $fileHandle): void
+    private function skipToEndOfLine(string &$rawData, FileReader $fileReader): void
     {
-        while (($char = fgetc($fileHandle)) !== false) {
+        while (($char = $fileReader->readChar()) !== false) {
             $rawData .= $char;
             if ("\n" === $char) {
                 break;
@@ -527,12 +525,12 @@ final class Tokenizer
      * Move the file pointer to the after the closing component of a multi-line comment. Used to process multi-line
      * comments.
      */
-    private function skipToAfterClosingComment(string &$rawData, $fileHandle, string $delimiter): void
+    private function skipToAfterClosingComment(string &$rawData, FileReader $fileReader, string $delimiter): void
     {
         $expectDelimiter = false;
 
         $accumulator = '';
-        while (($char = fgetc($fileHandle)) !== false) {
+        while (($char = $fileReader->readChar()) !== false) {
             $rawData .= $char;
             $accumulator .= $char;
 
@@ -549,7 +547,7 @@ final class Tokenizer
         // When a delimiter is expected we must skip over that too
         if ($expectDelimiter) {
             $charsRead = 0;
-            while (($char = fgetc($fileHandle)) !== false) {
+            while (($char = $fileReader->readChar()) !== false) {
                 $rawData .= $char;
                 $charsRead++;
 
